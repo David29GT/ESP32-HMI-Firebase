@@ -1,55 +1,100 @@
 #include <WiFi.h>
 #include <FirebaseESP32.h>
+#include <HTTPClient.h>
 #include "config.h"
 
 // Objetos de Firebase
-FirebaseData firebaseData;
-FirebaseConfig config;
+FirebaseData fbdo;
 FirebaseAuth auth;
+FirebaseConfig config;
+
+// Variables para el procesamiento del historial (Promedios y Extremos)
+float suma = 0;
+float valorMax = -1000.0;
+float valorMin = 1000.0;
+int contadorLecturas = 0;
+const int LECTURAS_POR_MINUTO = 30; // 30 lecturas de 2s = 1 minuto
 
 void setup() {
   Serial.begin(115200);
 
-  // 1. Conexión WiFi
+  // Conexión WiFi
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Conectando a WiFi");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\n¡Conectado a la red!");
+  Serial.println("\nConectado!");
 
-  // 2. Configuración de Firebase
-  // Usamos database_url para asegurar que apunte correctamente al Host
-  config.database_url = FIREBASE_HOST; 
+  // Configuración de Firebase
+  config.database_url = FIREBASE_HOST;
   config.signer.tokens.legacy_token = FIREBASE_AUTH;
-
-  // 3. Inicialización y Reconexión
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
-
-  // Ajuste opcional para mejorar estabilidad de conexión SSL
-  firebaseData.setResponseSize(1024);
-  
-  Serial.println("Sistema Firebase listo.");
 }
 
 void loop() {
-  // Generamos un dato de prueba (simulando un sensor, ej. temperatura)
-  // random(min, max) genera un entero, luego le sumamos decimales
-  float valorPrueba = random(18, 30) + (random(0, 100) / 100.0);
+  // Simulación de lectura (aquí iría tu sensor real)
+  float lecturaActual = random(2000, 3000) / 100.0; 
 
-  Serial.printf("Enviando dato: %.2f... ", valorPrueba);
-
-  // Enviamos el dato a la ruta "/monitoreo/sensor1"
-  // Si la ruta no existe, Firebase la crea automáticamente
-  if (Firebase.setFloat(firebaseData, "/monitoreo/sensor1", valorPrueba)) {
-    Serial.println("¡Éxito en Firebase!");
+// 1. ENVÍO A FIREBASE (Tiempo Real - Cada 2 segundos)
+  if (Firebase.setFloat(fbdo, "/monitoreo/sensor1", lecturaActual)) {
+    // Cambiamos Serial.printf por Serial.println para saltar de línea
+    Serial.print("Tiempo Real: ");
+    Serial.print(lecturaActual);
+    Serial.println(" | OK"); // <--- El println hace el salto
   } else {
-    Serial.print("Error al enviar: ");
-    Serial.println(firebaseData.errorReason());
+    Serial.println("Error Firebase: " + fbdo.errorReason());
   }
 
-  // UPDATE_INTERVAL definido en config.h (2000ms = 2s)
-  delay(UPDATE_INTERVAL); 
+  // 2. ACUMULAR PARA HISTORIAL
+  suma += lecturaActual;
+  contadorLecturas++;
+  if (lecturaActual > valorMax) valorMax = lecturaActual;
+  if (lecturaActual < valorMin) valorMin = lecturaActual;
+
+  // 3. ¿SE CUMPLIÓ EL MINUTO? (Enviar reporte a D1)
+  if (contadorLecturas >= LECTURAS_POR_MINUTO) {
+    float promedio = suma / contadorLecturas;
+    enviarReporteHistorial(promedio, valorMax, valorMin);
+    
+    // Reiniciar acumuladores
+    suma = 0;
+    contadorLecturas = 0;
+    valorMax = -1000.0;
+    valorMin = 1000.0;
+  }
+
+  delay(UPDATE_INTERVAL); // 2000ms desde config.h
+}
+
+// Función para enviar el resumen al Worker (Base de Datos D1)
+void enviarReporteHistorial(float avg, float max, float min) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    
+    // URL de tu Worker con el endpoint /update
+    String url = "https://esp32-hmi-monitor.samsepiol-cs30.workers.dev/update";
+    
+    http.begin(url);
+    http.addHeader("Content-Type", "application/json");
+
+    // Construir el JSON con los datos procesados
+    String jsonPayload = "{";
+    jsonPayload += "\"type\":\"history\",";
+    jsonPayload += "\"avg\":" + String(avg) + ",";
+    jsonPayload += "\"max\":" + String(max) + ",";
+    jsonPayload += "\"min\":" + String(min);
+    jsonPayload += "}";
+
+    int httpResponseCode = http.POST(jsonPayload);
+
+    if (httpResponseCode > 0) {
+      Serial.printf("--- Reporte D1 Enviado: HTTP %d ---\n", httpResponseCode);
+    } else {
+      Serial.printf("Error enviando a D1: %s\n", http.errorToString(httpResponseCode).c_str());
+    }
+    http.end();
+  }
 }

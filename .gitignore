@@ -1,5 +1,21 @@
+# Dependencias y entornos
 node_modules/
 .wrangler/
 dist/
+package-lock.json
+
+# Archivos de sistema y logs
 *.log
 .DS_Store
+Thumbs.db
+
+# Firmware y temporales de Arduino/ESP32
+.pio/
+.vscode/
+*.bak
+*.tmp
+
+# Archivos específicos a ignorar
+firmware/config.h
+Guia_Proyecto_ESP32_Firebase.txt
+README2.md
