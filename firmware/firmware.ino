@@ -8,12 +8,15 @@ FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 
-// Variables para el procesamiento del historial (Promedios y Extremos)
+// Variables para el procesamiento del historial
 float suma = 0;
 float valorMax = -1000.0;
 float valorMin = 1000.0;
 int contadorLecturas = 0;
-const int LECTURAS_POR_MINUTO = 30; // 30 lecturas de 2s = 1 minuto
+const int LECTURAS_POR_MINUTO = 30; 
+
+// Arreglo para almacenar los 30 puntos crudos
+float historialLecturas[LECTURAS_POR_MINUTO]; 
 
 void setup() {
   Serial.begin(115200);
@@ -35,29 +38,43 @@ void setup() {
 }
 
 void loop() {
-  // Simulación de lectura (aquí iría tu sensor real)
-  float lecturaActual = random(2000, 3000) / 100.0; 
+  // Simulación de lectura (Random para pruebas)
+  float lecturaActual = random(2000, 3000) / 100.0;
 
-// 1. ENVÍO A FIREBASE (Tiempo Real - Cada 2 segundos)
+  // 1. ENVÍO A FIREBASE (Tiempo Real - Cada 2 segundos)
   if (Firebase.setFloat(fbdo, "/monitoreo/sensor1", lecturaActual)) {
-    // Cambiamos Serial.printf por Serial.println para saltar de línea
     Serial.print("Tiempo Real: ");
     Serial.print(lecturaActual);
-    Serial.println(" | OK"); // <--- El println hace el salto
+    Serial.println(" | OK");
   } else {
     Serial.println("Error Firebase: " + fbdo.errorReason());
   }
 
   // 2. ACUMULAR PARA HISTORIAL
+  if (contadorLecturas < LECTURAS_POR_MINUTO) {
+    historialLecturas[contadorLecturas] = lecturaActual;
+  }
+  
   suma += lecturaActual;
-  contadorLecturas++;
   if (lecturaActual > valorMax) valorMax = lecturaActual;
   if (lecturaActual < valorMin) valorMin = lecturaActual;
+  
+  contadorLecturas++;
 
-  // 3. ¿SE CUMPLIÓ EL MINUTO? (Enviar reporte a D1)
+  // 3. ¿SE CUMPLIÓ EL MINUTO?
   if (contadorLecturas >= LECTURAS_POR_MINUTO) {
     float promedio = suma / contadorLecturas;
-    enviarReporteHistorial(promedio, valorMax, valorMin);
+    
+    // Convertimos el array a String formato JSON
+    String jsonArray = "[";
+    for (int i = 0; i < LECTURAS_POR_MINUTO; i++) {
+      jsonArray += String(historialLecturas[i]);
+      if (i < LECTURAS_POR_MINUTO - 1) jsonArray += ",";
+    }
+    jsonArray += "]";
+
+    // Enviamos al Worker
+    enviarReporteHistorial(promedio, valorMax, valorMin, jsonArray);
     
     // Reiniciar acumuladores
     suma = 0;
@@ -66,26 +83,23 @@ void loop() {
     valorMin = 1000.0;
   }
 
-  delay(UPDATE_INTERVAL); // 2000ms desde config.h
+  delay(UPDATE_INTERVAL); 
 }
 
-// Función para enviar el resumen al Worker (Base de Datos D1)
-void enviarReporteHistorial(float avg, float max, float min) {
+void enviarReporteHistorial(float avg, float max, float min, String rawData) {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
-    
-    // URL de tu Worker con el endpoint /update
     String url = "https://esp32-hmi-monitor.samsepiol-cs30.workers.dev/update";
     
     http.begin(url);
     http.addHeader("Content-Type", "application/json");
 
-    // Construir el JSON con los datos procesados
     String jsonPayload = "{";
     jsonPayload += "\"type\":\"history\",";
     jsonPayload += "\"avg\":" + String(avg) + ",";
     jsonPayload += "\"max\":" + String(max) + ",";
-    jsonPayload += "\"min\":" + String(min);
+    jsonPayload += "\"min\":" + String(min) + ",";
+    jsonPayload += "\"lecturas\":" + rawData;
     jsonPayload += "}";
 
     int httpResponseCode = http.POST(jsonPayload);
