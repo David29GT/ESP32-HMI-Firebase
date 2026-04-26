@@ -22,7 +22,7 @@ export default {
 
     // --- RUTA 3: OBTENER DATOS PARA LA WEB ---
     if (request.method === "GET" && url.pathname === "/get-history") {
-      const limit = url.searchParams.get("limit") || 10; // Permite elegir cuántos minutos ver
+      const limit = url.searchParams.get("limit") || 10;
       const { results } = await env.DB.prepare(
         "SELECT * FROM historial ORDER BY id DESC LIMIT ?"
       ).bind(limit).all();
@@ -31,31 +31,31 @@ export default {
       });
     }
 
-    // --- RUTA 2: HMI ACTUALIZADA ---
+    // --- RUTA 2: HMI ACTUALIZADA (PANEL DE CONTROL) ---
     const html = `
     <!DOCTYPE html>
     <html lang="es">
     <head>
         <meta charset="UTF-8">
-        <title>Control Nivel Agua - USAC</title>
+        <title>Panel de Control - USAC</title>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
         <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
         <style>
             body { background-color: #f4f7f6; color: #333; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-            .header { width: 90%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-            .container { display: flex; width: 95%; gap: 20px; }
-            .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); flex: 1; }
-            .btn-group { display: flex; gap: 5px; margin-bottom: 15px; }
-            button { padding: 8px 12px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer; font-weight: bold; }
-            button:hover { background: #0056b3; }
-            h2 { color: #1a237e; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; }
-            canvas { max-height: 400px; }
+            .header { width: 95%; display: flex; justify-content: flex-start; align-items: center; margin-bottom: 20px; }
+            .container { display: flex; width: 95%; gap: 20px; flex-wrap: wrap; }
+            .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); flex: 1; min-width: 400px; }
+            .btn-group { display: flex; gap: 8px; margin-bottom: 15px; }
+            button { padding: 8px 16px; border: none; border-radius: 6px; background: #2196F3; color: white; cursor: pointer; font-weight: bold; transition: 0.3s; }
+            button:hover { background: #1976D2; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+            h2 { color: #1a237e; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-top: 0; }
+            canvas { width: 100% !important; max-height: 350px; }
         </style>
     </head>
     <body>
         <div class="header">
-            <h1 style="color: #1a237e;">Control Nivel Agua - USAC</h1>
+            <h1 style="color: #1a237e; margin: 0;">Panel de Control</h1>
         </div>
 
         <div class="container">
@@ -77,44 +77,66 @@ export default {
         </div>
 
         <script>
-            // --- CONFIGURACIÓN FIREBASE (TIEMPO REAL) ---
+            // Configuración común para los cursores (Tooltips)
+            const commonOptions = {
+                responsive: true,
+                plugins: {
+                    legend: { display: true },
+                    tooltip: {
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Nivel: ' + context.parsed.y.toFixed(2) + '%';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: value => value + '%' } }
+                }
+            };
+
+            // --- TIEMPO REAL (FIREBASE) ---
             const firebaseConfig = { databaseURL: "https://esp32-hmi-default-rtdb.firebaseio.com/" };
             firebase.initializeApp(firebaseConfig);
             const dbRef = firebase.database().ref("monitoreo/sensor1");
 
-            const ctxRT = document.getElementById('realtimeChart').getContext('2d');
-            const rtChart = new Chart(ctxRT, {
+            const rtChart = new Chart(document.getElementById('realtimeChart'), {
                 type: 'line',
-                data: { labels: [], datasets: [{ label: 'Nivel %', data: [], borderColor: '#2196F3', tension: 0.3, fill: true, backgroundColor: 'rgba(33, 150, 243, 0.1)' }] }
+                data: { labels: [], datasets: [{ label: 'Actual', data: [], borderColor: '#2196F3', backgroundColor: 'rgba(33, 150, 243, 0.1)', fill: true, tension: 0.4 }] },
+                options: commonOptions
             });
 
             dbRef.on('value', (snapshot) => {
                 const val = snapshot.val();
-                const now = new Date().toLocaleTimeString();
+                const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 if (rtChart.data.labels.length > 20) { rtChart.data.labels.shift(); rtChart.data.datasets[0].data.shift(); }
                 rtChart.data.labels.push(now);
                 rtChart.data.datasets[0].data.push(val);
-                rtChart.update();
+                rtChart.update('none'); // Update suave
             });
 
-            // --- LÓGICA HISTORIAL (D1) ---
-            const ctxHist = document.getElementById('historyChart').getContext('2d');
-            let historyChart = new Chart(ctxHist, {
-                type: 'bar', // Usaremos barras para ver los promedios por minuto
-                data: { labels: [], datasets: [{ label: 'Promedio Minuto', data: [], backgroundColor: '#4CAF50' }] }
+            // --- HISTORIAL (D1) ---
+            const histChart = new Chart(document.getElementById('historyChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Promedio Minuto', data: [], borderColor: '#4CAF50', backgroundColor: 'rgba(76, 175, 80, 0.1)', fill: true, tension: 0.3 }] },
+                options: commonOptions
             });
 
-            async function cargarHistorial(puntos) {
-                const response = await fetch('/get-history?limit=' + puntos);
-                const data = await response.json();
-                
-                // Limpiar y rellenar con datos nuevos
-                historyChart.data.labels = data.map(r => r.fecha.split(' ')[1]).reverse();
-                historyChart.data.datasets[0].data = data.map(r => r.promedio).reverse();
-                historyChart.update();
+            async function cargarHistorial(minutos) {
+                try {
+                    const response = await fetch('/get-history?limit=' + minutos);
+                    const data = await response.json();
+                    
+                    // Invertimos para que el tiempo fluya de izquierda a derecha
+                    histChart.data.labels = data.map(r => r.fecha.split(' ')[1]).reverse();
+                    histChart.data.datasets[0].data = data.map(r => r.promedio).reverse();
+                    histChart.update();
+                } catch (e) { console.error(\"Error cargando historial:\", e); }
             }
 
-            // Cargar por defecto los últimos 10 min
             cargarHistorial(10);
         </script>
     </body>
