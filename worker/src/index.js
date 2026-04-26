@@ -20,12 +20,21 @@ export default {
       }
     }
 
-    // --- RUTA 3: OBTENER DATOS PARA LA WEB ---
+    // --- RUTA 3: OBTENER DATOS ---
     if (request.method === "GET" && url.pathname === "/get-history") {
       const limit = url.searchParams.get("limit") || 10;
-      const { results } = await env.DB.prepare(
-        "SELECT * FROM historial ORDER BY id DESC LIMIT ?"
-      ).bind(limit).all();
+      const target = url.searchParams.get("target"); 
+
+      let query, params;
+      if (target) {
+        query = `SELECT * FROM historial WHERE fecha BETWEEN DATETIME(?, '-5 minutes') AND DATETIME(?, '+5 minutes') ORDER BY fecha ASC LIMIT 20`;
+        params = [target, target];
+      } else {
+        query = `SELECT * FROM historial ORDER BY id DESC LIMIT ?`;
+        params = [limit];
+      }
+
+      const { results } = await env.DB.prepare(query).bind(...params).all();
       return new Response(JSON.stringify(results), {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
@@ -46,24 +55,21 @@ export default {
             .header { width: 95%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
             .container { display: flex; width: 95%; gap: 20px; flex-wrap: wrap; }
             .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); flex: 1; min-width: 450px; position: relative; }
-            
             .nivel-badge { background: #1a237e; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 24px; font-weight: bold; text-align: center; }
             .nivel-label { font-size: 12px; display: block; opacity: 0.8; }
-
-            .btn-group { display: flex; gap: 4px; margin-bottom: 15px; flex-wrap: wrap; }
-            button { padding: 5px 10px; border: none; border-radius: 4px; background: #2196F3; color: white; cursor: pointer; font-weight: bold; font-size: 10px; transition: 0.2s; }
-            button.btn-alt { background: #ff9800; }
-            button:hover { filter: brightness(0.85); }
+            .btn-group { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+            .info-msg { font-size: 11px; color: #1a237e; margin-bottom: 10px; background: #e8eaf6; padding: 5px 10px; border-radius: 4px; border-left: 4px solid #1a237e; }
+            button { padding: 6px 12px; border: none; border-radius: 4px; background: #2196F3; color: white; cursor: pointer; font-weight: bold; font-size: 11px; transition: 0.2s; }
+            button:hover { background: #1976D2; }
+            button.active { background: #1a237e; }
             h2 { color: #1a237e; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-top: 0; }
+            #historyChart { cursor: default; }
         </style>
     </head>
     <body>
         <div class="header">
             <h1 style="color: #1a237e; margin: 0;">Panel de Control</h1>
-            <div class="nivel-badge">
-                <span class="nivel-label">NIVEL ACTUAL</span>
-                <span id="txt-actual">0.0%</span>
-            </div>
+            <div class="nivel-badge"><span class="nivel-label">NIVEL ACTUAL</span><span id="txt-actual">0.0%</span></div>
         </div>
 
         <div class="container">
@@ -74,35 +80,31 @@ export default {
 
             <div class="panel">
                 <h2>Historial (Cloudflare D1)</h2>
+                <div id="status-msg" class="info-msg">🔍 Haz clic en la tendencia para ver detalle | Doble clic para resetear</div>
                 <div class="btn-group">
-                    <button onclick="cargarHistorial(1)">1M</button>
-                    <button onclick="cargarHistorial(3)">3M</button>
-                    <button onclick="cargarHistorial(5)">5M</button>
-                    <button onclick="cargarHistorial(10)">10M</button>
-                    <button onclick="cargarHistorial(15)">15M</button>
-                    <button onclick="cargarHistorial(30)">30M</button>
-                    <button onclick="cargarHistorial(60)">1H</button>
-                    <button onclick="cargarHistorial(120)">2H</button>
-                    <button onclick="cargarHistorial(180)">3H</button>
-                    <button onclick="cargarHistorial(300)">5H</button>
-                    <button onclick="cargarHistorial(480)">8H</button>
-                    <button onclick="cargarHistorial(1440)">1D</button>
-                    <button onclick="cargarHistorial(2880)">2D</button>
-                    <button onclick="cargarHistorial(4320)">3D</button>
-                    <button onclick="cargarHistorial(43200)">1MES</button>
+                    <button onclick="cargarHistorial(1, this)">1M</button>
+                    <button onclick="cargarHistorial(5, this)">5M</button>
+                    <button onclick="cargarHistorial(60, this)">1H</button>
+                    <button onclick="cargarHistorial(1440, this)">1D</button>
+                    <button onclick="cargarHistorial(43200, this)">1MES</button>
+                    <button style="background:#ff9800" onclick="resetView(this)">RESETEAR</button>
                 </div>
                 <canvas id="historyChart"></canvas>
             </div>
         </div>
 
         <script>
+            let currentMode = 'trend';
+            let rawDataFromDB = [];
+
             const commonOptions = {
                 responsive: true,
+                maintainAspectRatio: true,
                 plugins: { tooltip: { mode: 'index', intersect: false } },
                 scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
             };
 
-            // --- FIREBASE ---
+            // --- FIREBASE (TIEMPO REAL) ---
             const firebaseConfig = { databaseURL: "https://esp32-hmi-default-rtdb.firebaseio.com/" };
             firebase.initializeApp(firebaseConfig);
             const dbRef = firebase.database().ref("monitoreo/sensor1");
@@ -115,56 +117,91 @@ export default {
 
             dbRef.on('value', (snapshot) => {
                 const val = snapshot.val();
-                const now = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
                 document.getElementById('txt-actual').innerText = val.toFixed(1) + '%';
+                const now = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
                 if (rtChart.data.labels.length > 20) { rtChart.data.labels.shift(); rtChart.data.datasets[0].data.shift(); }
                 rtChart.data.labels.push(now);
                 rtChart.data.datasets[0].data.push(val);
                 rtChart.update('none');
             });
 
-            // --- HISTORIAL ---
-            const histChart = new Chart(document.getElementById('historyChart'), {
+            // --- HISTORIAL (D1) ---
+            const ctxHist = document.getElementById('historyChart');
+            const histChart = new Chart(ctxHist, {
                 type: 'line',
                 data: { labels: [], datasets: [{ label: 'Cargando...', data: [], borderColor: '#4CAF50', backgroundColor: 'rgba(76, 175, 80, 0.1)', fill: true, tension: 0.1 }] },
-                options: commonOptions
+                options: {
+                    ...commonOptions,
+                    onHover: (e, el) => {
+                        // AJUSTE 2: Lupa si hay algo que clickear
+                        ctxHist.style.cursor = (el.length > 0 && currentMode === 'trend') ? 'zoom-in' : 'default';
+                    },
+                    onClick: (e, el) => {
+                        if (el.length > 0 && currentMode === 'trend') {
+                            const index = el[0].index;
+                            cargarHistorial(null, null, rawDataFromDB[index].fecha);
+                        }
+                    }
+                }
             });
 
-            async function cargarHistorial(limit) {
-                const response = await fetch('/get-history?limit=' + limit);
-                const dataRaw = await response.json();
-                const data = dataRaw.reverse(); // Ordenamos cronológicamente
+            // AJUSTE 3: Doble clic para resetear rápido
+            ctxHist.addEventListener('dblclick', () => resetView());
 
-                if (limit <= 5) {
-                    // MODO ALTA RESOLUCIÓN: Expandir los arrays de 30 lecturas
-                    let labelsFull = [];
-                    let dataFull = [];
-                    
-                    data.forEach((entry) => {
-                        const lecturas = JSON.parse(entry.lecturas);
-                        const horaBase = entry.fecha.split(' ')[1]; // Extrae HH:mm:ss
-                        
-                        lecturas.forEach((valor, i) => {
-                            // Solo mostramos la hora en el primer punto de cada minuto para no saturar el eje X
-                            labelsFull.push(i === 0 ? horaBase : ""); 
-                            dataFull.push(valor);
-                        });
-                    });
+            async function cargarHistorial(limit, btn, targetDate = null) {
+                // AJUSTE 1: Limpiar clases active al cambiar de modo
+                document.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
+                if(btn) btn.classList.add('active');
 
-                    histChart.data.labels = labelsFull;
-                    histChart.data.datasets[0].data = dataFull;
-                    histChart.data.datasets[0].label = 'Señal Real (Alta Res - ' + limit + ' min)';
+                let url = '/get-history?';
+                if (targetDate) {
+                    url += 'target=' + encodeURIComponent(targetDate);
+                    currentMode = 'zoom';
+                    document.getElementById('status-msg').innerText = "📍 Modo Detalle (Zoom). Doble clic para volver.";
                 } else {
-                    // MODO TENDENCIA: Usar promedios para rangos largos
-                    histChart.data.labels = data.map(r => {
-                        const partes = r.fecha.split(' '); 
-                        return limit > 1440 ? r.fecha : partes[1];
-                    });
-                    histChart.data.datasets[0].data = data.map(r => r.promedio);
-                    histChart.data.datasets[0].label = 'Tendencia (Promedio por Minuto)';
+                    url += 'limit=' + limit;
+                    currentMode = limit <= 5 ? 'zoom' : 'trend';
+                    document.getElementById('status-msg').innerText = "🔍 Haz clic en la tendencia para ver detalle | Doble clic para resetear";
                 }
-                
-                histChart.update();
+
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    rawDataFromDB = targetDate ? data : [...data].reverse();
+                    
+                    if (currentMode === 'zoom') {
+                        let labelsFull = [];
+                        let dataFull = [];
+                        rawDataFromDB.forEach((entry) => {
+                            try {
+                                const lecturas = entry.lecturas ? JSON.parse(entry.lecturas) : [entry.promedio];
+                                const hora = entry.fecha.split(' ')[1];
+                                lecturas.forEach((valor, i) => {
+                                    labelsFull.push(i === 0 ? hora : ""); 
+                                    dataFull.push(valor);
+                                });
+                            } catch(e) {
+                                labelsFull.push(entry.fecha.split(' ')[1]);
+                                dataFull.push(entry.promedio);
+                            }
+                        });
+                        histChart.data.labels = labelsFull;
+                        histChart.data.datasets[0].data = dataFull;
+                        histChart.data.datasets[0].label = targetDate ? 'Detalle Forense: ' + targetDate : 'Señal Cruda';
+                    } else {
+                        histChart.data.labels = rawDataFromDB.map(r => limit > 1440 ? r.fecha : r.fecha.split(' ')[1]);
+                        histChart.data.datasets[0].data = rawDataFromDB.map(r => r.promedio);
+                        histChart.data.datasets[0].label = 'Tendencia (Promedios)';
+                    }
+                    histChart.update();
+                } catch(err) {
+                    console.error("Error cargando datos:", err);
+                }
+            }
+
+            function resetView(btn) {
+                cargarHistorial(10, btn || document.querySelector('.btn-group button:nth-child(4)'));
             }
 
             cargarHistorial(10);
