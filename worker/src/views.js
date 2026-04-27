@@ -129,6 +129,7 @@ export const renderDashboard = () => `
         const commonOptions = {
             responsive: true,
             maintainAspectRatio: false,
+            spanGaps: false, // Importante: no une puntos si hay huecos
             plugins: { tooltip: { mode: 'index', intersect: false } },
             scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
         };
@@ -162,7 +163,10 @@ export const renderDashboard = () => `
                 onClick: (e, el) => {
                     if (el.length > 0 && currentMode === 'trend') {
                         const index = el[0].index;
-                        cargarHistorial(null, null, rawDataFromDB[index].fecha);
+                        // Buscamos el dato original correspondiente ignorando los puntos de relleno (0)
+                        const labelValue = histChart.data.labels[index];
+                        const original = rawDataFromDB.find(r => r.fecha.includes(labelValue));
+                        if(original) cargarHistorial(null, null, original.fecha);
                     }
                 }
             }
@@ -188,32 +192,52 @@ export const renderDashboard = () => `
             try {
                 const response = await fetch(url);
                 const data = await response.json();
+                // Los datos de D1 vienen del más nuevo al más viejo, invertimos para la gráfica
                 rawDataFromDB = targetDate ? data : [...data].reverse();
                 
+                let labelsFinales = [];
+                let datosFinales = [];
+                const UMBRAL_MINUTOS = 3; // Tiempo máximo para considerar conexión continua
+
                 if (currentMode === 'zoom') {
-                    let labelsFull = [];
-                    let dataFull = [];
                     rawDataFromDB.forEach((entry) => {
                         try {
                             const lecturas = entry.lecturas ? JSON.parse(entry.lecturas) : [entry.promedio];
                             const hora = entry.fecha.split(' ')[1];
                             lecturas.forEach((valor, i) => {
-                                labelsFull.push(i === 0 ? hora : ""); 
-                                dataFull.push(valor);
+                                labelsFinales.push(i === 0 ? hora : ""); 
+                                datosFinales.push(valor);
                             });
                         } catch(e) {
-                            labelsFull.push(entry.fecha.split(' ')[1]);
-                            dataFull.push(entry.promedio);
+                            labelsFinales.push(entry.fecha.split(' ')[1]);
+                            datosFinales.push(entry.promedio);
                         }
                     });
-                    histChart.data.labels = labelsFull;
-                    histChart.data.datasets[0].data = dataFull;
                     histChart.data.datasets[0].label = targetDate ? 'Detalle Forense: ' + targetDate : 'Señal Cruda';
                 } else {
-                    histChart.data.labels = rawDataFromDB.map(r => limit > 1440 ? r.fecha : r.fecha.split(' ')[1]);
-                    histChart.data.datasets[0].data = rawDataFromDB.map(r => r.promedio);
+                    // Lógica de detección de desconexión
+                    for (let i = 0; i < rawDataFromDB.length; i++) {
+                        const actual = rawDataFromDB[i];
+                        const fechaActual = new Date(actual.fecha.replace(' ', 'T'));
+
+                        if (i > 0) {
+                            const previa = rawDataFromDB[i - 1];
+                            const fechaPrevia = new Date(previa.fecha.replace(' ', 'T'));
+                            const diff = (fechaActual - fechaPrevia) / 1000 / 60;
+
+                            if (diff > UMBRAL_MINUTOS) {
+                                labelsFinales.push(""); 
+                                datosFinales.push(0); // Insertamos caída a cero
+                            }
+                        }
+                        labelsFinales.push(limit > 1440 ? actual.fecha : actual.fecha.split(' ')[1]);
+                        datosFinales.push(actual.promedio);
+                    }
                     histChart.data.datasets[0].label = 'Tendencia (Promedios)';
                 }
+
+                histChart.data.labels = labelsFinales;
+                histChart.data.datasets[0].data = datosFinales;
                 histChart.update();
             } catch(err) {
                 console.error("Error cargando datos:", err);
