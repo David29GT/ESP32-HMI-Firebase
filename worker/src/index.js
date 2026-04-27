@@ -1,14 +1,32 @@
 /**
  * Ruteador Principal (El Director de Orquesta)
- * Une los módulos de Datos y Vistas.
+ * Une los módulos de Datos, Vistas y Configuración PWA.
  */
 
 import { consultarHistorial, guardarRegistro } from './database.js';
 import { renderDashboard } from './views.js';
+import { renderManifest } from './manifest.js'; // Importamos el nuevo bloque
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // --- RUTA A: MANIFIESTO (Identidad de la App) ---
+    if (url.pathname === "/manifest.json") {
+      return new Response(JSON.stringify(renderManifest()), {
+        headers: { 
+          "Content-Type": "application/manifest+json",
+          "Access-Control-Allow-Origin": "*" 
+        }
+      });
+    }
+
+    // --- RUTA B: SERVICE WORKER (Requisito de instalación) ---
+    if (url.pathname === "/sw.js") {
+      return new Response("self.addEventListener('fetch', () => {});", {
+        headers: { "Content-Type": "application/javascript" }
+      });
+    }
 
     // --- RUTA 1: RECIBIR DATOS DEL ESP32 ---
     if (request.method === "POST" && url.pathname === "/update") {
@@ -43,7 +61,6 @@ export default {
     }
 
     // --- RUTA 3: PANEL DE CONTROL (HTML) ---
-    // Si no es ninguna de las anteriores, entregamos la interfaz
     return new Response(renderDashboard(), { 
       headers: { "Content-Type": "text/html" } 
     });

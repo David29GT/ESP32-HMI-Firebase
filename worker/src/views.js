@@ -13,24 +13,91 @@ export const renderDashboard = () => `
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
-        body { background-color: #f4f7f6; color: #333; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .header { width: 95%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .container { display: flex; width: 95%; gap: 20px; flex-wrap: wrap; }
-        .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); flex: 1; min-width: 450px; position: relative; }
-        .nivel-badge { background: #1a237e; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 24px; font-weight: bold; text-align: center; }
-        .nivel-label { font-size: 12px; display: block; opacity: 0.8; }
+        body { 
+            background-color: #f4f7f6; 
+            color: #333; 
+            font-family: 'Segoe UI', sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 10px; 
+            margin: 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .header { 
+            width: 100%; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px; 
+            padding: 0 5px;
+            box-sizing: border-box;
+        }
+        .container { 
+            display: flex; 
+            width: 100%; 
+            gap: 15px; 
+            flex-direction: column; 
+        }
+        .panel { 
+            background: white; 
+            padding: 15px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            width: 100%; 
+            box-sizing: border-box;
+            min-width: 0; 
+        }
+        .nivel-badge { 
+            background: #1a237e; 
+            color: #fff; 
+            padding: 8px 15px; 
+            border-radius: 8px; 
+            font-size: 20px; 
+            font-weight: bold; 
+            text-align: center; 
+        }
+        .nivel-label { font-size: 10px; display: block; opacity: 0.8; }
         .btn-group { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
-        .info-msg { font-size: 11px; color: #1a237e; margin-bottom: 10px; background: #e8eaf6; padding: 5px 10px; border-radius: 4px; border-left: 4px solid #1a237e; }
-        button { padding: 6px 12px; border: none; border-radius: 4px; background: #2196F3; color: white; cursor: pointer; font-weight: bold; font-size: 11px; transition: 0.2s; }
-        button:hover { background: #1976D2; }
+        .info-msg { font-size: 11px; color: #1a237e; margin-bottom: 10px; background: #e8eaf6; padding: 8px; border-radius: 4px; border-left: 4px solid #1a237e; }
+        
+        button { 
+            flex: 1;
+            min-width: 60px;
+            padding: 10px 5px; 
+            border: none; 
+            border-radius: 4px; 
+            background: #2196F3; 
+            color: white; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 11px; 
+        }
         button.active { background: #1a237e; }
-        h2 { color: #1a237e; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-top: 0; }
-        #historyChart { cursor: default; }
+        h2 { color: #1a237e; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-top: 0; font-size: 1.2rem; }
+        
+        canvas {
+            width: 100% !important;
+            max-height: 300px;
+        }
+
+        @media (min-width: 900px) {
+            .container { flex-direction: row; }
+            body { padding: 20px; }
+            .header { width: 95%; }
+            .container { width: 95%; }
+        }
     </style>
+
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1a237e">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3565/3565407.png">
 </head>
 <body>
     <div class="header">
-        <h1 style="color: #1a237e; margin: 0;">Panel de Control</h1>
+        <h1 style="color: #1a237e; margin: 0; font-size: 1.5rem;">Panel de Control</h1>
         <div class="nivel-badge"><span class="nivel-label">NIVEL ACTUAL</span><span id="txt-actual">0.0%</span></div>
     </div>
 
@@ -42,7 +109,7 @@ export const renderDashboard = () => `
 
         <div class="panel">
             <h2>Historial (Cloudflare D1)</h2>
-            <div id="status-msg" class="info-msg">🔍 Haz clic en la tendencia para ver detalle | Doble clic para resetear</div>
+            <div id="status-msg" class="info-msg">🔍 Haz clic para ver detalle | Doble clic para resetear</div>
             <div class="btn-group">
                 <button onclick="cargarHistorial(1, this)">1M</button>
                 <button onclick="cargarHistorial(5, this)">5M</button>
@@ -61,7 +128,7 @@ export const renderDashboard = () => `
 
         const commonOptions = {
             responsive: true,
-            maintainAspectRatio: true,
+            maintainAspectRatio: false,
             plugins: { tooltip: { mode: 'index', intersect: false } },
             scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
         };
@@ -92,9 +159,6 @@ export const renderDashboard = () => `
             data: { labels: [], datasets: [{ label: 'Cargando...', data: [], borderColor: '#4CAF50', backgroundColor: 'rgba(76, 175, 80, 0.1)', fill: true, tension: 0.1 }] },
             options: {
                 ...commonOptions,
-                onHover: (e, el) => {
-                    ctxHist.style.cursor = (el.length > 0 && currentMode === 'trend') ? 'zoom-in' : 'default';
-                },
                 onClick: (e, el) => {
                     if (el.length > 0 && currentMode === 'trend') {
                         const index = el[0].index;
@@ -118,7 +182,7 @@ export const renderDashboard = () => `
             } else {
                 url += 'limit=' + limit;
                 currentMode = limit <= 5 ? 'zoom' : 'trend';
-                document.getElementById('status-msg').innerText = "🔍 Haz clic en la tendencia para ver detalle | Doble clic para resetear";
+                document.getElementById('status-msg').innerText = "🔍 Haz clic para ver detalle | Doble clic para resetear";
             }
 
             try {
