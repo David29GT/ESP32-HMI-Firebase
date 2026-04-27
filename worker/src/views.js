@@ -48,10 +48,7 @@ export const renderDashboard = () => `
             width: 100%; 
             box-sizing: border-box;
         }
-        /* Clase especial para que la bomba ocupe todo el ancho abajo */
-        .panel-full {
-            width: 100%;
-        }
+        .panel-full { width: 100%; }
         .nivel-badge { 
             background: #1a237e; 
             color: #fff; 
@@ -62,50 +59,67 @@ export const renderDashboard = () => `
             text-align: center; 
         }
         .nivel-label { font-size: 10px; display: block; opacity: 0.8; }
-        .btn-group { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
-        .info-msg { font-size: 11px; color: #1a237e; margin-bottom: 10px; background: #e8eaf6; padding: 8px; border-radius: 4px; border-left: 4px solid #1a237e; }
         
-        button { 
-            flex: 1;
-            min-width: 60px;
-            padding: 10px 5px; 
-            border: none; 
-            border-radius: 4px; 
-            background: #2196F3; 
-            color: white; 
-            cursor: pointer; 
-            font-weight: bold; 
-            font-size: 11px; 
+        /* Layout de Activos (Bomba y Tanque) */
+        .assets-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 30px;
+            margin: 20px 0;
         }
-        button.active { background: #1a237e; }
-        h2 { color: #1a237e; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-top: 0; font-size: 1.2rem; }
-        
+
+        /* Estilos del Tanque */
+        .tanque-container {
+            width: 120px;
+            height: 180px;
+            border: 4px solid #444;
+            border-radius: 10px 10px 5px 5px;
+            position: relative;
+            background: #eee;
+            overflow: hidden;
+            box-shadow: inset 5px 0 10px rgba(0,0,0,0.1);
+        }
+        .agua {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 0%; /* Controlado por JS */
+            background: linear-gradient(to top, #0288d1, #29b6f6);
+            transition: height 0.5s ease-in-out;
+            display: flex;
+            justify-content: center;
+        }
+        /* Efecto de olas/brillo en el agua */
+        .agua::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            width: 100%;
+            height: 5px;
+            background: rgba(255,255,255,0.4);
+        }
+
+        /* Estilos de la Bomba */
         .bomba-container {
             position: relative;
-            width: 100%;
-            max-width: 400px; /* Un poco más grande ahora que está abajo */
-            margin: 10px auto;
+            width: 220px;
             border: 1px solid #ddd;
             border-radius: 8px;
             padding: 10px;
             background: #fff;
         }
-        .bomba-img {
-            width: 100%;
-            display: block;
-            height: auto;
-        }
+        .bomba-img { width: 100%; display: block; height: auto; }
         .bomba-overlay {
             position: absolute;
-            top: 10px;
-            left: 10px;
+            top: 10px; left: 10px;
             width: calc(100% - 20px);
             height: calc(100% - 20px);
             mix-blend-mode: overlay;
             opacity: 0;
             transition: all 0.5s ease;
             pointer-events: none;
-            border-radius: 4px;
         }
 
         .simulador-box {
@@ -115,26 +129,14 @@ export const renderDashboard = () => `
             margin-bottom: 15px;
             border: 1px dashed #ff9800;
             max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
+            margin-left: auto; margin-right: auto;
         }
 
-        canvas {
-            width: 100% !important;
-            max-height: 250px;
-        }
+        canvas { width: 100% !important; max-height: 250px; }
 
         @media (min-width: 900px) {
-            .container { 
-                display: grid;
-                grid-template-columns: 1fr 1fr; /* Dos columnas para las gráficas */
-                width: 95%;
-            }
-            .panel-full {
-                grid-column: span 2; /* La bomba ocupa las dos columnas */
-            }
-            body { padding: 20px; }
-            .header { width: 95%; }
+            .container { display: grid; grid-template-columns: 1fr 1fr; width: 95%; }
+            .panel-full { grid-column: span 2; }
         }
     </style>
 </head>
@@ -152,38 +154,43 @@ export const renderDashboard = () => `
 
         <div class="panel">
             <h2>Historial (Cloudflare D1)</h2>
-            <div id="status-msg" class="info-msg">🔍 Haz clic para ver detalle</div>
-            <div class="btn-group">
-                <button onclick="cargarHistorial(1, this)">1M</button>
-                <button onclick="cargarHistorial(60, this)">1H</button>
-                <button onclick="cargarHistorial(1440, this)">1D</button>
-                <button style="background:#ff9800" onclick="resetView(this)">RESETEAR</button>
-            </div>
             <canvas id="historyChart"></canvas>
         </div>
 
         <div class="panel panel-full">
-            <h2>Estado de Activos e Instrumentación</h2>
+            <h2>Instrumentación de Planta</h2>
             
             <div class="simulador-box">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                    <label style="font-size: 12px; font-weight: bold; color: #e65100;">🛠️ MODO PRUEBA (Simulación Manual):</label>
+                    <label style="font-size: 12px; font-weight: bold; color: #e65100;">🛠️ MODO SIMULACIÓN:</label>
                     <div style="display: flex; align-items: center; gap: 5px;">
-                         <input type="checkbox" id="check-manual"> <span style="font-size: 12px;">Activar</span>
+                         <input type="checkbox" id="check-manual"> <span style="font-size: 12px;">Activar Manual</span>
                     </div>
                 </div>
                 <input type="range" id="simulador-nivel" min="0" max="100" value="0" style="width: 100%;">
             </div>
 
-            <div class="bomba-container">
-                <img src="https://res.cloudinary.com/drov8gutj/image/upload/v1777261467/HeavyDutyPlasticCentrifugalPump_pmvqm8.svg" class="bomba-img">
-                <div id="bomba-status-overlay" class="bomba-overlay"></div>
+            <div class="assets-grid">
+                <div style="text-align: center;">
+                    <div class="tanque-container">
+                        <div id="agua-nivel" class="agua"></div>
+                    </div>
+                    <p style="font-size: 12px; font-weight: bold; color: #555;">TANQUE A-1</p>
+                </div>
+
+                <div style="text-align: center;">
+                    <div class="bomba-container">
+                        <img src="https://res.cloudinary.com/drov8gutj/image/upload/v1777261467/HeavyDutyPlasticCentrifugalPump_pmvqm8.svg" class="bomba-img">
+                        <div id="bomba-status-overlay" class="bomba-overlay"></div>
+                    </div>
+                    <p id="bomba-label" style="font-size: 12px; font-weight: bold; color: #666;">ESTADO: APAGADO</p>
+                </div>
             </div>
-            <div id="bomba-label" style="text-align:center; font-weight:bold; color:#666; font-size: 1.1rem; margin-top: 10px;">ESTADO: APAGADO</div>
         </div>
     </div>
 
     <script>
+        const agua = document.getElementById('agua-nivel');
         const overlay = document.getElementById('bomba-status-overlay');
         const label = document.getElementById('bomba-label');
         const txtActual = document.getElementById('txt-actual');
@@ -194,30 +201,36 @@ export const renderDashboard = () => `
             const num = parseFloat(val);
             txtActual.innerText = num.toFixed(1) + '%';
             
+            // Actualizar Tanque
+            agua.style.height = num + '%';
+            
+            // Actualizar Bomba
             if (num > 80) {
                 overlay.style.opacity = "1";
                 overlay.style.backgroundColor = "#F44336"; 
-                label.innerText = "ESTADO: EMERGENCIA / ALTO NIVEL";
+                label.innerText = "ESTADO: EMERGENCIA";
                 label.style.color = "#F44336";
-            } else if (num > 20) {
+            } else if (num > 5) {
                 overlay.style.opacity = "1";
                 overlay.style.backgroundColor = "#4CAF50"; 
                 label.innerText = "ESTADO: BOMBA ACTIVA";
                 label.style.color = "#4CAF50";
             } else {
                 overlay.style.opacity = "0";
-                label.innerText = "ESTADO: APAGADO / NIVEL BAJO";
+                label.innerText = "ESTADO: APAGADO";
                 label.style.color = "#666";
             }
         }
 
+        // Firebase Config
         const firebaseConfig = { databaseURL: "https://esp32-hmi-default-rtdb.firebaseio.com/" };
         firebase.initializeApp(firebaseConfig);
         const dbRef = firebase.database().ref("monitoreo/sensor1");
 
+        // Chart Config
         const rtChart = new Chart(document.getElementById('realtimeChart'), {
             type: 'line',
-            data: { labels: [], datasets: [{ label: 'Nivel %', data: [], borderColor: '#2196F3', backgroundColor: 'rgba(33, 150, 243, 0.1)', fill: true, tension: 0.4 }] },
+            data: { labels: [], datasets: [{ label: 'Nivel %', data: [], borderColor: '#2196F3', fill: true, tension: 0.4 }] },
             options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
         });
 
@@ -225,7 +238,6 @@ export const renderDashboard = () => `
             if (!checkManual.checked) {
                 const val = snapshot.val() || 0;
                 actualizarHMI(val);
-                
                 const now = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
                 if (rtChart.data.labels.length > 20) { rtChart.data.labels.shift(); rtChart.data.datasets[0].data.shift(); }
                 rtChart.data.labels.push(now);
@@ -235,13 +247,10 @@ export const renderDashboard = () => `
         });
 
         slider.addEventListener('input', (e) => {
-            if (checkManual.checked) {
-                actualizarHMI(e.target.value);
-            }
+            if (checkManual.checked) actualizarHMI(e.target.value);
         });
 
-        async function cargarHistorial(limit, btn) { console.log("Carga D1..."); }
-        function resetView(btn) { cargarHistorial(10, btn); }
+        async function cargarHistorial(limit) { console.log("Cargando..."); }
         cargarHistorial(10);
     </script>
 </body>
