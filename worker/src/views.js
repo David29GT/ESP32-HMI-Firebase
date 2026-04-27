@@ -47,7 +47,10 @@ export const renderDashboard = () => `
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
             width: 100%; 
             box-sizing: border-box;
-            min-width: 0; 
+        }
+        /* Clase especial para que la bomba ocupe todo el ancho abajo */
+        .panel-full {
+            width: 100%;
         }
         .nivel-badge { 
             background: #1a237e; 
@@ -77,27 +80,67 @@ export const renderDashboard = () => `
         button.active { background: #1a237e; }
         h2 { color: #1a237e; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-top: 0; font-size: 1.2rem; }
         
+        .bomba-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px; /* Un poco más grande ahora que está abajo */
+            margin: 10px auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background: #fff;
+        }
+        .bomba-img {
+            width: 100%;
+            display: block;
+            height: auto;
+        }
+        .bomba-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: calc(100% - 20px);
+            height: calc(100% - 20px);
+            mix-blend-mode: overlay;
+            opacity: 0;
+            transition: all 0.5s ease;
+            pointer-events: none;
+            border-radius: 4px;
+        }
+
+        .simulador-box {
+            background: #fff3e0;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px dashed #ff9800;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
         canvas {
             width: 100% !important;
-            max-height: 300px;
+            max-height: 250px;
         }
 
         @media (min-width: 900px) {
-            .container { flex-direction: row; }
+            .container { 
+                display: grid;
+                grid-template-columns: 1fr 1fr; /* Dos columnas para las gráficas */
+                width: 95%;
+            }
+            .panel-full {
+                grid-column: span 2; /* La bomba ocupa las dos columnas */
+            }
             body { padding: 20px; }
             .header { width: 95%; }
-            .container { width: 95%; }
         }
     </style>
-
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#1a237e">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3565/3565407.png">
 </head>
 <body>
     <div class="header">
-        <h1 style="color: #1a237e; margin: 0; font-size: 1.5rem;">Panel de Control</h1>
+        <h1 style="color: #1a237e; margin: 0; font-size: 1.5rem;">Panel de Control - USAC</h1>
         <div class="nivel-badge"><span class="nivel-label">NIVEL ACTUAL</span><span id="txt-actual">0.0%</span></div>
     </div>
 
@@ -109,30 +152,64 @@ export const renderDashboard = () => `
 
         <div class="panel">
             <h2>Historial (Cloudflare D1)</h2>
-            <div id="status-msg" class="info-msg">🔍 Haz clic para ver detalle | Doble clic para resetear</div>
+            <div id="status-msg" class="info-msg">🔍 Haz clic para ver detalle</div>
             <div class="btn-group">
                 <button onclick="cargarHistorial(1, this)">1M</button>
-                <button onclick="cargarHistorial(5, this)">5M</button>
                 <button onclick="cargarHistorial(60, this)">1H</button>
                 <button onclick="cargarHistorial(1440, this)">1D</button>
-                <button onclick="cargarHistorial(43200, this)">1MES</button>
                 <button style="background:#ff9800" onclick="resetView(this)">RESETEAR</button>
             </div>
             <canvas id="historyChart"></canvas>
         </div>
+
+        <div class="panel panel-full">
+            <h2>Estado de Activos e Instrumentación</h2>
+            
+            <div class="simulador-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <label style="font-size: 12px; font-weight: bold; color: #e65100;">🛠️ MODO PRUEBA (Simulación Manual):</label>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                         <input type="checkbox" id="check-manual"> <span style="font-size: 12px;">Activar</span>
+                    </div>
+                </div>
+                <input type="range" id="simulador-nivel" min="0" max="100" value="0" style="width: 100%;">
+            </div>
+
+            <div class="bomba-container">
+                <img src="https://res.cloudinary.com/drov8gutj/image/upload/v1777261467/HeavyDutyPlasticCentrifugalPump_pmvqm8.svg" class="bomba-img">
+                <div id="bomba-status-overlay" class="bomba-overlay"></div>
+            </div>
+            <div id="bomba-label" style="text-align:center; font-weight:bold; color:#666; font-size: 1.1rem; margin-top: 10px;">ESTADO: APAGADO</div>
+        </div>
     </div>
 
     <script>
-        let currentMode = 'trend';
-        let rawDataFromDB = [];
+        const overlay = document.getElementById('bomba-status-overlay');
+        const label = document.getElementById('bomba-label');
+        const txtActual = document.getElementById('txt-actual');
+        const slider = document.getElementById('simulador-nivel');
+        const checkManual = document.getElementById('check-manual');
 
-        const commonOptions = {
-            responsive: true,
-            maintainAspectRatio: false,
-            spanGaps: false, // Importante: no une puntos si hay huecos
-            plugins: { tooltip: { mode: 'index', intersect: false } },
-            scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
-        };
+        function actualizarHMI(val) {
+            const num = parseFloat(val);
+            txtActual.innerText = num.toFixed(1) + '%';
+            
+            if (num > 80) {
+                overlay.style.opacity = "1";
+                overlay.style.backgroundColor = "#F44336"; 
+                label.innerText = "ESTADO: EMERGENCIA / ALTO NIVEL";
+                label.style.color = "#F44336";
+            } else if (num > 20) {
+                overlay.style.opacity = "1";
+                overlay.style.backgroundColor = "#4CAF50"; 
+                label.innerText = "ESTADO: BOMBA ACTIVA";
+                label.style.color = "#4CAF50";
+            } else {
+                overlay.style.opacity = "0";
+                label.innerText = "ESTADO: APAGADO / NIVEL BAJO";
+                label.style.color = "#666";
+            }
+        }
 
         const firebaseConfig = { databaseURL: "https://esp32-hmi-default-rtdb.firebaseio.com/" };
         firebase.initializeApp(firebaseConfig);
@@ -141,113 +218,30 @@ export const renderDashboard = () => `
         const rtChart = new Chart(document.getElementById('realtimeChart'), {
             type: 'line',
             data: { labels: [], datasets: [{ label: 'Nivel %', data: [], borderColor: '#2196F3', backgroundColor: 'rgba(33, 150, 243, 0.1)', fill: true, tension: 0.4 }] },
-            options: commonOptions
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
         });
 
         dbRef.on('value', (snapshot) => {
-            const val = snapshot.val();
-            document.getElementById('txt-actual').innerText = val.toFixed(1) + '%';
-            const now = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-            if (rtChart.data.labels.length > 20) { rtChart.data.labels.shift(); rtChart.data.datasets[0].data.shift(); }
-            rtChart.data.labels.push(now);
-            rtChart.data.datasets[0].data.push(val);
-            rtChart.update('none');
-        });
-
-        const ctxHist = document.getElementById('historyChart');
-        const histChart = new Chart(ctxHist, {
-            type: 'line',
-            data: { labels: [], datasets: [{ label: 'Cargando...', data: [], borderColor: '#4CAF50', backgroundColor: 'rgba(76, 175, 80, 0.1)', fill: true, tension: 0.1 }] },
-            options: {
-                ...commonOptions,
-                onClick: (e, el) => {
-                    if (el.length > 0 && currentMode === 'trend') {
-                        const index = el[0].index;
-                        // Buscamos el dato original correspondiente ignorando los puntos de relleno (0)
-                        const labelValue = histChart.data.labels[index];
-                        const original = rawDataFromDB.find(r => r.fecha.includes(labelValue));
-                        if(original) cargarHistorial(null, null, original.fecha);
-                    }
-                }
-            }
-        });
-
-        ctxHist.addEventListener('dblclick', () => resetView());
-
-        async function cargarHistorial(limit, btn, targetDate = null) {
-            document.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
-            if(btn) btn.classList.add('active');
-
-            let url = '/get-history?';
-            if (targetDate) {
-                url += 'target=' + encodeURIComponent(targetDate);
-                currentMode = 'zoom';
-                document.getElementById('status-msg').innerText = "📍 Modo Detalle (Zoom). Doble clic para volver.";
-            } else {
-                url += 'limit=' + limit;
-                currentMode = limit <= 5 ? 'zoom' : 'trend';
-                document.getElementById('status-msg').innerText = "🔍 Haz clic para ver detalle | Doble clic para resetear";
-            }
-
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                // Los datos de D1 vienen del más nuevo al más viejo, invertimos para la gráfica
-                rawDataFromDB = targetDate ? data : [...data].reverse();
+            if (!checkManual.checked) {
+                const val = snapshot.val() || 0;
+                actualizarHMI(val);
                 
-                let labelsFinales = [];
-                let datosFinales = [];
-                const UMBRAL_MINUTOS = 3; // Tiempo máximo para considerar conexión continua
-
-                if (currentMode === 'zoom') {
-                    rawDataFromDB.forEach((entry) => {
-                        try {
-                            const lecturas = entry.lecturas ? JSON.parse(entry.lecturas) : [entry.promedio];
-                            const hora = entry.fecha.split(' ')[1];
-                            lecturas.forEach((valor, i) => {
-                                labelsFinales.push(i === 0 ? hora : ""); 
-                                datosFinales.push(valor);
-                            });
-                        } catch(e) {
-                            labelsFinales.push(entry.fecha.split(' ')[1]);
-                            datosFinales.push(entry.promedio);
-                        }
-                    });
-                    histChart.data.datasets[0].label = targetDate ? 'Detalle Forense: ' + targetDate : 'Señal Cruda';
-                } else {
-                    // Lógica de detección de desconexión
-                    for (let i = 0; i < rawDataFromDB.length; i++) {
-                        const actual = rawDataFromDB[i];
-                        const fechaActual = new Date(actual.fecha.replace(' ', 'T'));
-
-                        if (i > 0) {
-                            const previa = rawDataFromDB[i - 1];
-                            const fechaPrevia = new Date(previa.fecha.replace(' ', 'T'));
-                            const diff = (fechaActual - fechaPrevia) / 1000 / 60;
-
-                            if (diff > UMBRAL_MINUTOS) {
-                                labelsFinales.push(""); 
-                                datosFinales.push(0); // Insertamos caída a cero
-                            }
-                        }
-                        labelsFinales.push(limit > 1440 ? actual.fecha : actual.fecha.split(' ')[1]);
-                        datosFinales.push(actual.promedio);
-                    }
-                    histChart.data.datasets[0].label = 'Tendencia (Promedios)';
-                }
-
-                histChart.data.labels = labelsFinales;
-                histChart.data.datasets[0].data = datosFinales;
-                histChart.update();
-            } catch(err) {
-                console.error("Error cargando datos:", err);
+                const now = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                if (rtChart.data.labels.length > 20) { rtChart.data.labels.shift(); rtChart.data.datasets[0].data.shift(); }
+                rtChart.data.labels.push(now);
+                rtChart.data.datasets[0].data.push(val);
+                rtChart.update('none');
             }
-        }
+        });
 
-        function resetView(btn) {
-            cargarHistorial(10, btn || document.querySelector('.btn-group button:nth-child(4)'));
-        }
+        slider.addEventListener('input', (e) => {
+            if (checkManual.checked) {
+                actualizarHMI(e.target.value);
+            }
+        });
 
+        async function cargarHistorial(limit, btn) { console.log("Carga D1..."); }
+        function resetView(btn) { cargarHistorial(10, btn); }
         cargarHistorial(10);
     </script>
 </body>
