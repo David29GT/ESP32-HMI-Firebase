@@ -216,8 +216,8 @@ export async function handleScadaRequest() {
     </head>
     <body>
       <div class="nav-bar">
-        <a href="/dashboard">📊 Dashboard</a>
         <a href="/" class="active">🏭 SCADA HMI</a>
+        <a href="/dashboard">📊 Telemetría</a>
       </div>
       <div class="user-profile-card">
         <div class="user-avatar" id="user-avatar-initials">S1</div>

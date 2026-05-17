@@ -104,8 +104,8 @@ export const renderDashboard = (config) => `
 </head>
 <body>
     <div class="nav-bar">
-        <a href="/dashboard" class="active">📊 Telemetría</a>
         <a href="/">🏭 SCADA HMI</a>
+        <a href="/dashboard" class="active">📊 Telemetría</a>
     </div>
 
     <div class="header">
