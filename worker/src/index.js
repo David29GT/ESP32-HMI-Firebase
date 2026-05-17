@@ -6,6 +6,7 @@
 import { consultarHistorial, guardarRegistro } from './database.js';
 import { renderDashboard } from './views.js';
 import { renderManifest } from './manifest.js'; // Importamos el nuevo bloque
+import { handleScadaRequest } from './scada.js';
 
 export default {
   async fetch(request, env) {
@@ -31,8 +32,16 @@ export default {
     // --- RUTA 1: RECIBIR DATOS DEL ESP32 ---
     if (request.method === "POST" && url.pathname === "/update") {
       try {
+        // Validación simple de API Key para seguridad
+        const apiKey = request.headers.get("X-API-Key");
+        if (env.API_KEY && apiKey !== env.API_KEY) {
+          return new Response("No autorizado", { status: 401 });
+        }
+
         const data = await request.json();
-        if (data.type === "history") {
+        
+        // Validar que el objeto tenga los datos necesarios
+        if (data.type === "history" && data.avg !== undefined) {
           await guardarRegistro(env, data);
           return new Response("Historial guardado", { status: 201 });
         }
@@ -60,8 +69,17 @@ export default {
       }
     }
 
+    // --- RUTA 4: SCADA HMI (NUEVA PÁGINA) ---
+    if (url.pathname === "/scada") {
+      return await handleScadaRequest();
+    }
+
     // --- RUTA 3: PANEL DE CONTROL (HTML) ---
-    return new Response(renderDashboard(), { 
+    // Solo pasamos la URL de Firebase para evitar exponer la API_KEY u otros secretos
+    const config = {
+      FIREBASE_URL: env.FIREBASE_URL
+    };
+    return new Response(renderDashboard(config), { 
       headers: { "Content-Type": "text/html" } 
     });
   }

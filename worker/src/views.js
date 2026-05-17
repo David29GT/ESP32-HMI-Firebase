@@ -3,7 +3,7 @@
  * Contiene el HTML, CSS y el JavaScript que corre en el navegador.
  */
 
-export const renderDashboard = () => `
+export const renderDashboard = (config) => `
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -25,6 +25,26 @@ export const renderDashboard = () => `
             width: 100%;
             box-sizing: border-box;
         }
+        .nav-bar {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 900px;
+        }
+        .nav-bar a {
+            text-decoration: none;
+            color: #1a237e;
+            font-weight: bold;
+            padding: 8px 16px;
+            background: #e8eaf6;
+            border-radius: 20px;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+        .nav-bar a:hover { background: #c5cae9; }
+        .nav-bar a.active { background: #1a237e; color: white; }
         .header { 
             width: 100%; 
             display: flex; 
@@ -143,6 +163,11 @@ export const renderDashboard = () => `
     </style>
 </head>
 <body>
+    <div class="nav-bar">
+        <a href="/" class="active">📊 Dashboard</a>
+        <a href="/scada">🏭 SCADA HMI</a>
+    </div>
+
     <div class="header">
         <h1 style="color: #1a237e; margin: 0; font-size: 1.5rem;">Panel de Control - USAC</h1>
         <div class="nivel-badge"><span class="nivel-label">NIVEL ACTUAL</span><span id="txt-actual">0.0%</span></div>
@@ -252,7 +277,7 @@ export const renderDashboard = () => `
         });
 
         // --- FIREBASE ---
-        const firebaseConfig = { databaseURL: "https://esp32-hmi-default-rtdb.firebaseio.com/" };
+        const firebaseConfig = { databaseURL: "${config.FIREBASE_URL || 'https://esp32-hmi-default-rtdb.firebaseio.com/'}" };
         firebase.initializeApp(firebaseConfig);
         const dbRef = firebase.database().ref("monitoreo/sensor1");
 
@@ -274,14 +299,18 @@ export const renderDashboard = () => `
         // --- LÓGICA DE HISTORIAL D1 ---
         async function cargarHistorial(limit, btn, targetDate = null) {
             document.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
-            if(btn) btn.classList.add('active');
+            if(btn) btn.classList.add('active'); 
+            
+            const statusMsg = document.getElementById('status-msg');
+            const originalMsg = targetDate ? "📍 Modo Detalle. Doble clic para volver." : "🔍 Clic para detalle | Doble clic reset";
+            statusMsg.innerText = "⏳ Cargando datos...";
 
             let url = targetDate ? '/get-history?target=' + encodeURIComponent(targetDate) : '/get-history?limit=' + limit;
             currentMode = (targetDate || limit <= 5) ? 'zoom' : 'trend';
-            document.getElementById('status-msg').innerText = targetDate ? "📍 Modo Detalle. Doble clic para volver." : "🔍 Clic para detalle | Doble clic reset";
 
             try {
                 const response = await fetch(url);
+                if (!response.ok) throw new Error("Error en servidor");
                 const data = await response.json();
                 rawDataFromDB = targetDate ? data : [...data].reverse();
                 
@@ -291,24 +320,38 @@ export const renderDashboard = () => `
                 if (currentMode === 'zoom') {
                     rawDataFromDB.forEach(entry => {
                         const lecturas = entry.lecturas ? JSON.parse(entry.lecturas) : [entry.promedio];
-                        const hora = entry.fecha.split(' ')[1];
+                        // Tratamos la fecha como UTC y convertimos a local
+                        const fechaLocal = new Date(entry.fecha.replace(' ','T') + 'Z');
+                        const hora = fechaLocal.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
                         lecturas.forEach((v, i) => { labelsFinales.push(i === 0 ? hora : ""); datosFinales.push(v); });
                     });
                 } else {
                     for (let i = 0; i < rawDataFromDB.length; i++) {
                         const actual = rawDataFromDB[i];
+                        const fechaActualLocal = new Date(actual.fecha.replace(' ','T') + 'Z');
+                        
                         if (i > 0) {
-                            const diff = (new Date(actual.fecha.replace(' ','T')) - new Date(rawDataFromDB[i-1].fecha.replace(' ','T'))) / 60000;
+                            const fechaPreviaLocal = new Date(rawDataFromDB[i-1].fecha.replace(' ','T') + 'Z');
+                            const diff = (fechaActualLocal - fechaPreviaLocal) / 60000;
                             if (diff > UMBRAL) { labelsFinales.push(""); datosFinales.push(0); }
                         }
-                        labelsFinales.push(limit > 1440 ? actual.fecha : actual.fecha.split(' ')[1]);
+                        
+                        const labelStr = limit > 1440 
+                            ? fechaActualLocal.toLocaleDateString() 
+                            : fechaActualLocal.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                            
+                        labelsFinales.push(labelStr);
                         datosFinales.push(actual.promedio);
                     }
                 }
                 histChart.data.labels = labelsFinales;
                 histChart.data.datasets[0].data = datosFinales;
                 histChart.update();
-            } catch(e) { console.error(e); }
+                statusMsg.innerText = originalMsg;
+            } catch(e) { 
+                console.error(e);
+                statusMsg.innerText = "❌ Error al cargar datos del historial";
+            }
         }
 
         ctxHist.addEventListener('dblclick', () => resetView());

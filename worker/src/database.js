@@ -24,7 +24,7 @@ export async function consultarHistorial(env, limit, target) {
 
 export async function guardarRegistro(env, data) {
     return await env.DB.prepare(
-        "INSERT INTO historial (promedio, maximo, minimo, lecturas, fecha) VALUES (?, ?, ?, ?, DATETIME('now', '-6 hours'))"
+        "INSERT INTO historial (promedio, maximo, minimo, lecturas, fecha) VALUES (?, ?, ?, ?, DATETIME('now'))"
     )
     .bind(data.avg, data.max, data.min, JSON.stringify(data.lecturas))
     .run();
