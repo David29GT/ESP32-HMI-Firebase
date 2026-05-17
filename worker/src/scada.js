@@ -142,6 +142,17 @@ export async function handleScadaRequest() {
         .estop-badge.inactive { background: #f1f5f9; color: #94a3b8; border: 1px solid #cbd5e1; }
         .estop-badge.active { background: #fee2e2; color: #ef4444; border: 1px solid #ef4444; animation: blink-critical 1s infinite; }
 
+        /* --- DIAGNÓSTICO Y TELEMETRÍA --- */
+        .telemetry-card { grid-column: span 2; background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 15px; border-radius: 12px; }
+        .telemetry-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+        .metric-box { background: #1e293b; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #334155; }
+        .metric-val { display: block; font-size: 1.1rem; font-weight: 800; color: #f8fafc; }
+        .metric-label { font-size: 0.6rem; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; }
+        .db-status { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; margin-top: 15px; padding-top: 10px; border-top: 1px solid #334155; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+        .heartbeat { width: 12px; height: 12px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; animation: heartbeat-pulse 1s infinite; }
+        @keyframes heartbeat-pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
+
         .nav-bar {
             display: flex;
             gap: 15px;
@@ -169,6 +180,28 @@ export async function handleScadaRequest() {
       <h2 style="margin-bottom: 20px; color: #334155;">SCADA HMI - USAC</h2>
       <div id="alarms-list" class="alarms-section"></div>
       <div class="dashboard">
+        <!-- TARJETA DE TELEMETRÍA Y DIAGNÓSTICO -->
+        <div class="card telemetry-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label style="color: #38bdf8; font-size: 0.8rem; font-weight: 800;">RED Y DIAGNÓSTICO DE TELEMETRÍA</label>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 0.6rem; color: #94a3b8; font-weight: bold;">HEARTBEAT</span>
+              <div class="heartbeat"></div>
+            </div>
+          </div>
+          <div class="telemetry-grid">
+            <div class="metric-box"><span class="metric-val" id="rssi-val">-65 <small style="font-size:0.5rem">dBm</small></span><span class="metric-label">WiFi RSSI</span></div>
+            <div class="metric-box"><span class="metric-val" id="cycle-val">120 <small style="font-size:0.5rem">ms</small></span><span class="metric-label">Scan Cycle</span></div>
+            <div class="metric-box"><span class="metric-val" id="ping-val">45 <small style="font-size:0.5rem">ms</small></span><span class="metric-label">Ping CF</span></div>
+            <div class="metric-box"><span class="metric-val" id="bw-val">2.4 <small style="font-size:0.5rem">KB/s</small></span><span class="metric-label">Bandwidth</span></div>
+          </div>
+          <div class="db-status">
+            <div class="status-dot"></div>
+            <span>Firebase DB: <b style="color: #22c55e;">CONECTADO</b></span>
+            <span style="margin-left: auto; color: #94a3b8;">Sincronización: <span id="last-sync">hace 0s</span></span>
+          </div>
+        </div>
+
         <!-- TARJETA DE VECTOR DE CONTROL -->
         <div class="card control-vector-card" id="control-vector">
           <label style="color: #1e293b; font-size: 0.8rem; letter-spacing: 0.5px; font-weight: 800;">Vector de Control / Modos de Operación</label>
@@ -264,6 +297,24 @@ export async function handleScadaRequest() {
           if(!pipesState) document.getElementById("card-container-pipes").classList.add("disabled-ui");
         }
 
+        // --- LÓGICA DE TELEMETRÍA ---
+        let lastSyncTime = Date.now();
+        function updateTelemetry() {
+          const rssi = -60 - Math.floor(Math.random() * 15);
+          const cycle = 110 + Math.floor(Math.random() * 30);
+          const ping = 40 + Math.floor(Math.random() * 20);
+          const bw = (2.1 + Math.random()).toFixed(1);
+          
+          document.getElementById('rssi-val').innerHTML = \`\${rssi} <small style="font-size:0.5rem">dBm</small>\`;
+          document.getElementById('cycle-val').innerHTML = \`\${cycle} <small style="font-size:0.5rem">ms</small>\`;
+          document.getElementById('ping-val').innerHTML = \`\${ping} <small style="font-size:0.5rem">ms</small>\`;
+          document.getElementById('bw-val').innerHTML = \`\${bw} <small style="font-size:0.5rem">KB/s</small>\`;
+          
+          const diff = Math.floor((Date.now() - lastSyncTime) / 1000);
+          document.getElementById('last-sync').innerText = \`hace \${diff}s\`;
+          if(diff > 5 && Math.random() > 0.8) lastSyncTime = Date.now();
+        }
+
         // --- LÓGICA DE ALARMAS ---
         let alarmasActivas = [
           { id: 101, cod: "T1-LVL-HIGH", msg: "Tanque 1: Nivel Crítico (Sobrellenado)", nivel: "critical", hora: "10:45:12" },
@@ -349,7 +400,7 @@ export async function handleScadaRequest() {
         }
 
         window.onload = () => {
-          renderAlarms(); updateSystemLevel(); updatePipesColor();
+          renderAlarms(); updateSystemLevel(); updatePipesColor(); updateTelemetry(); setInterval(updateTelemetry, 2000);
           for(let i=0; i<cardStates.length; i++) updateCardColor(i);
         };
       </script>
