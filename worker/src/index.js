@@ -69,18 +69,24 @@ export default {
       }
     }
 
-    // --- RUTA 4: SCADA HMI (NUEVA PÁGINA) ---
-    if (url.pathname === "/scada") {
+    // --- RUTA SCADA HMI (POR DEFECTO Y /scada) ---
+    if (url.pathname === "/" || url.pathname === "/scada") {
       return await handleScadaRequest();
     }
 
-    // --- RUTA 3: PANEL DE CONTROL (HTML) ---
+    // --- RUTA PANEL DE CONTROL (ANTIGUA PÁGINA) ---
+    // Ahora accesible explícitamente a través de /dashboard
+    if (url.pathname === "/dashboard") {
     // Solo pasamos la URL de Firebase para evitar exponer la API_KEY u otros secretos
-    const config = {
-      FIREBASE_URL: env.FIREBASE_URL
-    };
-    return new Response(renderDashboard(config), { 
-      headers: { "Content-Type": "text/html" } 
-    });
+      const config = {
+        FIREBASE_URL: env.FIREBASE_URL
+      };
+      return new Response(renderDashboard(config), { 
+        headers: { "Content-Type": "text/html" } 
+      });
+    }
+
+    // Fallback para cualquier otra ruta no encontrada
+    return new Response("Página no encontrada", { status: 404 });
   }
 };

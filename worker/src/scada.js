@@ -6,6 +6,24 @@
 export async function handleScadaRequest() {
     const MIS_TARJETAS = [
       {
+        nombre: "Tanque de Agua 3",
+        url: "https://res.cloudinary.com/drov8gutj/image/upload/v1778991112/Tanque2_hbqomy.svg",
+        pintadoIndependiente: false,
+        colorFijoestatico: "#64748b",
+        animarNivel: true,
+        idAguaOriginal: "aguaT2"
+      },
+      { vacio: true },
+      {
+        nombre: "Tanque de Agua 2",
+        url: "https://res.cloudinary.com/drov8gutj/image/upload/v1778991112/Tanque2_hbqomy.svg",
+        pintadoIndependiente: false,
+        colorFijoestatico: "#64748b",
+        animarNivel: true,
+        idAguaOriginal: "aguaT2"
+      },
+      { vacio: true },
+      {
         nombre: "Depósito T1",
         url: "https://res.cloudinary.com/drov8gutj/image/upload/v1778597351/Tanque1_nfv478.svg",
         pintadoIndependiente: false, 
@@ -13,6 +31,7 @@ export async function handleScadaRequest() {
         animarNivel: true,
         idAguaOriginal: "aguaT1"
       },
+      { vacio: true },
       {
         nombre: "Bomba",
         url: "https://res.cloudinary.com/drov8gutj/image/upload/v1778483624/DrivePump_bx7yly.svg",
@@ -24,14 +43,6 @@ export async function handleScadaRequest() {
         url: "https://res.cloudinary.com/drov8gutj/image/upload/v1778483502/MiniElectricSafetyShutoffValve_cd5tgs.svg",
         pintadoIndependiente: false,
         colorFijoestatico: "#64748b"
-      },
-      {
-        nombre: "Tanque de Agua 2",
-        url: "https://res.cloudinary.com/drov8gutj/image/upload/v1778991112/Tanque2_hbqomy.svg",
-        pintadoIndependiente: false,
-        colorFijoestatico: "#64748b",
-        animarNivel: true,
-        idAguaOriginal: "aguaT2"
       }
     ];
 
@@ -72,7 +83,7 @@ export async function handleScadaRequest() {
     }
 
     const allSVGs = await Promise.all([
-        ...MIS_TARJETAS.map((t, idx) => getEnhancedSVG(t.url, `card-${idx}`, t.pintadoIndependiente, t.animarNivel, t.idAguaOriginal)),
+        ...MIS_TARJETAS.map((t, idx) => t.vacio ? Promise.resolve(null) : getEnhancedSVG(t.url, `card-${idx}`, t.pintadoIndependiente, t.animarNivel, t.idAguaOriginal)),
         ...PIPE_URLS.map((url, i) => getEnhancedSVG(url, `p${i}`))
     ]);
 
@@ -205,8 +216,8 @@ export async function handleScadaRequest() {
     </head>
     <body>
       <div class="nav-bar">
-        <a href="/">📊 Dashboard</a>
-        <a href="/scada" class="active">🏭 SCADA HMI</a>
+        <a href="/dashboard">📊 Dashboard</a>
+        <a href="/" class="active">🏭 SCADA HMI</a>
       </div>
       <div class="user-profile-card">
         <div class="user-avatar" id="user-avatar-initials">S1</div>
@@ -293,7 +304,11 @@ export async function handleScadaRequest() {
           </div>
         </div>
 
-        ${MIS_TARJETAS.map((t, idx) => `
+        ${MIS_TARJETAS.map((t, idx) => {
+          if (t.vacio) {
+            return `<div class="card-empty-slot" style="visibility: hidden; pointer-events: none;"></div>`;
+          }
+          return `
           <div class="card" id="card-container-${idx}" data-independent="${t.pintadoIndependiente}" data-static-color="${t.colorFijoestatico}">
             <div class="card-header"><label>${t.nombre}</label><button class="btn-toggle active" id="toggle-${idx}" onclick="toggleCard(${idx})">ON</button></div>
             <div class="canvas">${customSVGs[idx]}</div>
@@ -302,7 +317,8 @@ export async function handleScadaRequest() {
               <input type="range" class="scada-range" id="colorSlider-${idx}" min="0" max="19" value="${(idx * 3) % 20}" oninput="updateCardColor(${idx})">
               <div id="card-statusLabel-${idx}" class="status-badge-mini">OK</div>
             </div>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
         <div class="card" style="grid-column: span 2;" id="card-container-pipes">
           <div class="card-header"><label>Red de Tuberías</label><button class="btn-toggle active" id="toggle-pipes" onclick="togglePipes()">ON</button></div>
           <div class="canvas"><div class="pipe-mini-grid">${svgPipes.map(s => `<div class="pipe-item">${s}</div>`).join('')}</div></div>
@@ -346,7 +362,7 @@ export async function handleScadaRequest() {
           document.getElementById('user-display-name').innerText = currentUser.name;
           document.getElementById('user-display-role').innerText = currentUser.role;
 
-          const cardsToLock = document.querySelectorAll('.card:not(.telemetry-card):not(.oee-card):not(.audit-log-card)');
+          const cardsToLock = document.querySelectorAll('.card:not(.telemetry-card):not(.oee-card):not(.audit-log-card):not(.control-vector-card)');
           cardsToLock.forEach(c => {
             if(isOp) c.classList.add('readonly-operador');
             else c.classList.remove('readonly-operador');
@@ -547,7 +563,7 @@ export async function handleScadaRequest() {
           updateTelemetry(); 
           updateOEEAndFlow();
           setInterval(() => { updateTelemetry(); updateOEEAndFlow(); }, 2000);
-          for(let i=0; i<cardStates.length; i++) updateCardColor(i);
+          for(let i=0; i<cardStates.length; i++) if(!MIS_TARJETAS[i].vacio) updateCardColor(i);
         };
       </script>
     </body>
