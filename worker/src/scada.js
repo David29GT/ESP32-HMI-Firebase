@@ -142,6 +142,30 @@ export async function handleScadaRequest() {
         .estop-badge.inactive { background: #f1f5f9; color: #94a3b8; border: 1px solid #cbd5e1; }
         .estop-badge.active { background: #fee2e2; color: #ef4444; border: 1px solid #ef4444; animation: blink-critical 1s infinite; }
 
+        /* --- PERFIL DE USUARIO --- */
+        .user-profile-card { position: fixed; top: 15px; right: 15px; background: white; padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 10px; z-index: 1000; }
+        .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: #1e293b; color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.7rem; }
+        .user-info { display: flex; flex-direction: column; }
+        .user-name { font-size: 0.75rem; font-weight: 800; color: #1e293b; line-height: 1; }
+        .user-role { font-size: 0.55rem; color: #64748b; font-weight: bold; text-transform: uppercase; margin-top: 2px; }
+        .role-selector { font-size: 0.55rem; border: 1px solid #e2e8f0; border-radius: 4px; padding: 2px; margin-top: 4px; cursor: pointer; background: #f8fafc; }
+
+        /* --- AUDIT LOG --- */
+        .audit-log-card { grid-column: span 2; background: #ffffff; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; }
+        .audit-log-list { list-style: none; padding: 0; margin: 10px 0 0 0; max-height: 120px; overflow-y: auto; }
+        .audit-log-list li { font-family: monospace; font-size: 0.65rem; color: #475569; padding: 4px 0; border-bottom: 1px dashed #f1f5f9; }
+        .audit-log-list li:last-child { border-bottom: none; }
+        .audit-log-list li .ts { color: #94a3b8; font-weight: bold; margin-right: 5px; }
+
+        /* --- RBAC MASKING --- */
+        .readonly-operador { position: relative; }
+        .readonly-operador::after { 
+            content: "🔒"; position: absolute; top: 10px; right: 10px; font-size: 0.8rem; z-index: 20; background: #f8fafc; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; opacity: 0.8;
+        }
+        .readonly-operador input, .readonly-operador button:not(.btn-ack) { 
+            pointer-events: none !important; opacity: 0.4 !important; filter: grayscale(1); 
+        }
+
         /* --- DIAGNÓSTICO Y TELEMETRÍA --- */
         .telemetry-card { grid-column: span 2; background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 15px; border-radius: 12px; }
         .telemetry-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
@@ -184,7 +208,19 @@ export async function handleScadaRequest() {
         <a href="/">📊 Dashboard</a>
         <a href="/scada" class="active">🏭 SCADA HMI</a>
       </div>
-      <h2 style="margin-bottom: 20px; color: #334155;">SCADA HMI - USAC</h2>
+      <div class="user-profile-card">
+        <div class="user-avatar" id="user-avatar-initials">S1</div>
+        <div class="user-info">
+          <span class="user-name" id="user-display-name">Supervisor_01</span>
+          <span class="user-role" id="user-display-role">SUPERVISOR</span>
+          <select class="role-selector" onchange="switchUser(this.value)">
+            <option value="sup_01">Ver como Supervisor</option>
+            <option value="op_01">Ver como Operador</option>
+            <option value="adm_01">Ver como Administrador</option>
+          </select>
+        </div>
+      </div>
+      <h2 style="margin-top: 20px; margin-bottom: 20px; color: #334155;">SCADA HMI - USAC</h2>
       <div id="alarms-list" class="alarms-section"></div>
       <div class="dashboard">
         <!-- TARJETA DE TELEMETRÍA Y DIAGNÓSTICO -->
@@ -220,6 +256,16 @@ export async function handleScadaRequest() {
             <div class="oee-box"><span class="oee-val" id="total-vol">124.5 <small style="font-size:0.5rem">L</small></span><span class="oee-label">Vol. Total</span></div>
             <div class="oee-box"><span class="oee-val" id="runtime-val">08:24 <small style="font-size:0.5rem">h</small></span><span class="oee-label">Runtime</span></div>
           </div>
+        </div>
+
+        <!-- TARJETA DE REGISTRO DE CAMBIOS (AUDIT LOG) -->
+        <div class="card audit-log-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label style="color: #1e293b; font-size: 0.8rem; font-weight: 800;">REGISTRO DE CAMBIOS (AUDIT LOG)</label>
+          </div>
+          <ul id="audit-log-list" class="audit-log-list">
+            <!-- Logs dinámicos -->
+          </ul>
         </div>
 
         <!-- TARJETA DE VECTOR DE CONTROL -->
@@ -286,14 +332,57 @@ export async function handleScadaRequest() {
         const cardStates = Array(${MIS_TARJETAS.length}).fill(true);
         let pipesState = true;
 
+        // --- GESTIÓN DE USUARIOS (RBAC) ---
+        const USERS = {
+          "op_01": { name: "Operador_01", role: "OPERADOR", initials: "O1" },
+          "sup_01": { name: "Supervisor_01", role: "SUPERVISOR", initials: "S1" },
+          "adm_01": { name: "Admin_USAC", role: "ADMINISTRADOR", initials: "AD" }
+        };
+        let currentUser = USERS["sup_01"];
+
+        function applyRBAC() {
+          const isOp = currentUser.role === 'OPERADOR';
+          document.getElementById('user-avatar-initials').innerText = currentUser.initials;
+          document.getElementById('user-display-name').innerText = currentUser.name;
+          document.getElementById('user-display-role').innerText = currentUser.role;
+
+          const cardsToLock = document.querySelectorAll('.card:not(.telemetry-card):not(.oee-card):not(.audit-log-card)');
+          cardsToLock.forEach(c => {
+            if(isOp) c.classList.add('readonly-operador');
+            else c.classList.remove('readonly-operador');
+          });
+        }
+
+        function switchUser(uid) {
+          currentUser = USERS[uid];
+          applyRBAC();
+          addLogEntry('Sistema', \`Sesión cambiada a \${currentUser.name} (\${currentUser.role})\`);
+        }
+
+        // --- LÓGICA DE AUDIT LOG ---
+        let auditLogEntries = [];
+        function addLogEntry(user, action) {
+          const now = new Date();
+          const ts = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+          auditLogEntries.unshift({ ts, user, action });
+          if(auditLogEntries.length > 10) auditLogEntries.pop();
+          renderAuditLog();
+        }
+        function renderAuditLog() {
+          const list = document.getElementById('audit-log-list');
+          list.innerHTML = auditLogEntries.map(e => \`<li><span class="ts">[\${e.ts}]</span> <b>\${e.user}</b> \${e.action}</li>\`).join('');
+        }
+
         // --- ESTADO VECTOR DE CONTROL ---
         let opMode = 'MANUAL';
         let estopActive = false;
 
         function setOpMode(mode) {
+          if(opMode === mode) return;
           opMode = mode;
           document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
           document.getElementById('mode-' + mode).classList.add('active');
+          addLogEntry(currentUser.name, \`cambió MODO a \${mode}.\`);
         }
 
         function updateSP(type) {
@@ -302,19 +391,23 @@ export async function handleScadaRequest() {
         }
 
         function triggerEStop() {
+          if(estopActive) return;
           estopActive = true;
           document.getElementById('estop-indicator').innerText = "🛑 PARADA DE EMERGENCIA ACTIVA";
           document.getElementById('estop-indicator').className = "estop-badge active";
           document.querySelectorAll('.card').forEach(c => { if(c.id !== 'control-vector') c.classList.add('disabled-ui'); });
+          addLogEntry(currentUser.name, 'activó PARADA DE EMERGENCIA.');
         }
 
         function resetEStop() {
+          if(!estopActive) return;
           estopActive = false;
           document.getElementById('estop-indicator').innerText = "SISTEMA: NORMAL (E-STOP OK)";
           document.getElementById('estop-indicator').className = "estop-badge inactive";
           document.querySelectorAll('.card').forEach(c => c.classList.remove('disabled-ui'));
           for(let i=0; i<cardStates.length; i++) if(!cardStates[i]) document.getElementById("card-container-" + i).classList.add("disabled-ui");
           if(!pipesState) document.getElementById("card-container-pipes").classList.add("disabled-ui");
+          addLogEntry(currentUser.name, 'reseteó PARADA DE EMERGENCIA.');
         }
 
         // --- LÓGICA DE TELEMETRÍA ---
@@ -446,7 +539,9 @@ export async function handleScadaRequest() {
         }
 
         window.onload = () => {
+          addLogEntry('Sistema', 'HMI SCADA iniciado.');
           renderAlarms(); 
+          applyRBAC();
           updateSystemLevel(); 
           updatePipesColor(); 
           updateTelemetry(); 
