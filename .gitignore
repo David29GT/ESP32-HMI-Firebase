@@ -19,3 +19,7 @@ Thumbs.db
 firmware/config.h
 Guia_Proyecto_ESP32_Firebase.txt
 README2.md
+
+# Backend de Python y Base de Datos Histórica
+backend/serviceAccountKey.json
+backend/historico_scada.db
