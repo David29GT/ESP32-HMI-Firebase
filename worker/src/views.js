@@ -113,11 +113,12 @@ export const renderDashboard = (config) => `
         <div style="display: flex; gap: 10px;">
             <div class="nivel-badge"><span class="nivel-label">TANQUE 1</span><span id="txt-actual-1">0.0%</span></div>
             <div class="nivel-badge"><span class="nivel-label">TANQUE 2</span><span id="txt-actual-2">0.0%</span></div>
+            <div class="nivel-badge"><span class="nivel-label">TANQUE 3</span><span id="txt-actual-3">0.0%</span></div>
         </div>
     </div>
 
     <div class="container">
-        ${[1, 2].map(id => `
+        ${[1, 2, 3].map(id => `
             <div class="panel">
                 <h2>Monitoreo de Tanque ${id}</h2>
                 <div id="status-msg-${id}" class="info-msg">⏱️ Modo: Tiempo Real activado</div>
@@ -138,9 +139,9 @@ export const renderDashboard = (config) => `
     <script>
         // --- VARIABLES Y CONFIG ---
         const tankCharts = {};
-        const isRTMode = { 1: true, 2: true };
-        const rawDataFromDB = { 1: [], 2: [] };
-        const currentMode = { 1: 'trend', 2: 'trend' };
+        const isRTMode = { 1: true, 2: true, 3: true };
+        const rawDataFromDB = { 1: [], 2: [], 3: [], 3: [] };
+        const currentMode = { 1: 'trend', 2: 'trend', 3: 'trend' };
 
         // --- CHARTS ---
         const commonOptions = {
@@ -268,7 +269,7 @@ export const renderDashboard = (config) => `
         }
 
         window.onload = () => {
-            [1, 2].forEach(id => {
+            [1, 2, 3].forEach(id => {
                 initChart(id);
                 setupFirebase(id);
                 cargarHistorial(id, 60);
