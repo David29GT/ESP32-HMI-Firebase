@@ -23,3 +23,4 @@ README2.md
 # Backend de Python y Base de Datos Histórica
 backend/serviceAccountKey.json
 backend/historico_scada.db
+backend/datos_grafica.json
