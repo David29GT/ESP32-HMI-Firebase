@@ -127,6 +127,21 @@ export async function handleScadaRequest() {
         .btn-ack { background: #334155; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; transition: 0.2s; }
         .btn-ack:hover { background: #1e293b; }
 
+        /* --- VECTOR DE CONTROL --- */
+        .control-vector-card { grid-column: span 2; background: #ffffff; border: 2px solid #1e293b; padding: 20px; border-radius: 12px; }
+        .mode-selector { display: flex; gap: 10px; margin: 15px 0; }
+        .btn-mode { flex: 1; padding: 10px; border: 1px solid #cbd5e1; background: white; cursor: pointer; border-radius: 8px; font-weight: bold; font-size: 0.75rem; transition: 0.3s; }
+        .btn-mode.active { background: #1e293b; color: white; border-color: #1e293b; }
+        
+        .setpoint-group { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; }
+        .setpoint-row { background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .setpoint-header { display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: bold; color: #475569; margin-bottom: 5px; }
+        
+        .estop-section { margin-top: 20px; padding-top: 15px; border-top: 1px dashed #cbd5e1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .estop-badge { flex: 1; padding: 10px; border-radius: 6px; font-weight: 800; font-size: 0.7rem; text-align: center; }
+        .estop-badge.inactive { background: #f1f5f9; color: #94a3b8; border: 1px solid #cbd5e1; }
+        .estop-badge.active { background: #fee2e2; color: #ef4444; border: 1px solid #ef4444; animation: blink-critical 1s infinite; }
+
         .nav-bar {
             display: flex;
             gap: 15px;
@@ -154,6 +169,31 @@ export async function handleScadaRequest() {
       <h2 style="margin-bottom: 20px; color: #334155;">SCADA HMI - USAC</h2>
       <div id="alarms-list" class="alarms-section"></div>
       <div class="dashboard">
+        <!-- TARJETA DE VECTOR DE CONTROL -->
+        <div class="card control-vector-card" id="control-vector">
+          <label style="color: #1e293b; font-size: 0.8rem; letter-spacing: 0.5px; font-weight: 800;">Vector de Control / Modos de Operación</label>
+          <div class="mode-selector">
+            <button id="mode-MANUAL" class="btn-mode active" onclick="setOpMode('MANUAL')">MANUAL</button>
+            <button id="mode-AUTO" class="btn-mode" onclick="setOpMode('AUTO')">AUTOMÁTICO</button>
+            <button id="mode-MANT" class="btn-mode" onclick="setOpMode('MANT')">MANTENIMIENTO</button>
+          </div>
+          <div class="setpoint-group">
+            <div class="setpoint-row">
+              <div class="setpoint-header"><span>SETPOINT ALTO (Supervisor)</span><span id="sp-high-val">90%</span></div>
+              <input type="range" class="scada-range" id="sp-high" min="50" max="100" value="90" oninput="updateSP('high')">
+            </div>
+            <div class="setpoint-row">
+              <div class="setpoint-header"><span>SETPOINT BAJO (Supervisor)</span><span id="sp-low-val">10%</span></div>
+              <input type="range" class="scada-range" id="sp-low" min="0" max="50" value="10" oninput="updateSP('low')">
+            </div>
+          </div>
+          <div class="estop-section">
+            <div id="estop-indicator" class="estop-badge inactive">SISTEMA: NORMAL (E-STOP OK)</div>
+            <button class="btn-ack" style="background: #ef4444; padding: 10px 15px;" onclick="triggerEStop()">E-STOP</button>
+            <button class="btn-ack" style="padding: 10px 15px;" onclick="resetEStop()">RESET (S/R)</button>
+          </div>
+        </div>
+
         ${MIS_TARJETAS.map((t, idx) => `
           <div class="card" id="card-container-${idx}" data-independent="${t.pintadoIndependiente}" data-static-color="${t.colorFijoestatico}">
             <div class="card-header"><label>${t.nombre}</label><button class="btn-toggle active" id="toggle-${idx}" onclick="toggleCard(${idx})">ON</button></div>
@@ -192,6 +232,37 @@ export async function handleScadaRequest() {
         ];
         const cardStates = Array(${MIS_TARJETAS.length}).fill(true);
         let pipesState = true;
+
+        // --- ESTADO VECTOR DE CONTROL ---
+        let opMode = 'MANUAL';
+        let estopActive = false;
+
+        function setOpMode(mode) {
+          opMode = mode;
+          document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
+          document.getElementById('mode-' + mode).classList.add('active');
+        }
+
+        function updateSP(type) {
+          const val = document.getElementById('sp-' + type).value;
+          document.getElementById('sp-' + type + '-val').innerText = val + '%';
+        }
+
+        function triggerEStop() {
+          estopActive = true;
+          document.getElementById('estop-indicator').innerText = "🛑 PARADA DE EMERGENCIA ACTIVA";
+          document.getElementById('estop-indicator').className = "estop-badge active";
+          document.querySelectorAll('.card').forEach(c => { if(c.id !== 'control-vector') c.classList.add('disabled-ui'); });
+        }
+
+        function resetEStop() {
+          estopActive = false;
+          document.getElementById('estop-indicator').innerText = "SISTEMA: NORMAL (E-STOP OK)";
+          document.getElementById('estop-indicator').className = "estop-badge inactive";
+          document.querySelectorAll('.card').forEach(c => c.classList.remove('disabled-ui'));
+          for(let i=0; i<cardStates.length; i++) if(!cardStates[i]) document.getElementById("card-container-" + i).classList.add("disabled-ui");
+          if(!pipesState) document.getElementById("card-container-pipes").classList.add("disabled-ui");
+        }
 
         // --- LÓGICA DE ALARMAS ---
         let alarmasActivas = [
