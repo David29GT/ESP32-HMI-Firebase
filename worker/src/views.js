@@ -8,19 +8,19 @@ export const renderDashboard = (config) => `
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Panel de Control - USAC</title>
+    <title>Telemetría - USAC</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
         body { 
-            background-color: #f4f7f6; 
-            color: #333; 
+            background-color: #f1f5f9; 
+            color: #1e293b; 
             font-family: 'Segoe UI', sans-serif; 
             display: flex; 
             flex-direction: column; 
             align-items: center; 
-            padding: 10px; 
+            padding: 20px; 
             margin: 0;
             width: 100%;
             box-sizing: border-box;
@@ -47,6 +47,7 @@ export const renderDashboard = (config) => `
         .nav-bar a.active { background: #1a237e; color: white; }
         .header { 
             width: 100%; 
+            max-width: 900px;
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
@@ -55,201 +56,91 @@ export const renderDashboard = (config) => `
             box-sizing: border-box;
         }
         .container { 
-            display: flex; 
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
             width: 100%; 
+            max-width: 900px;
             gap: 15px; 
-            flex-direction: column; 
         }
         .panel { 
+            grid-column: span 2;
             background: white; 
             padding: 15px; 
             border-radius: 12px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
             width: 100%; 
             box-sizing: border-box;
             min-width: 0; 
         }
-        .panel-full { width: 100%; }
         .nivel-badge { 
             background: #1a237e; 
             color: #fff; 
-            padding: 8px 15px; 
+            padding: 4px 10px; 
             border-radius: 8px; 
-            font-size: 20px; 
+            font-size: 16px; 
             font-weight: bold; 
             text-align: center; 
         }
         .nivel-label { font-size: 10px; display: block; opacity: 0.8; }
-        .btn-group { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
-        .info-msg { font-size: 11px; color: #1a237e; margin-bottom: 10px; background: #e8eaf6; padding: 8px; border-radius: 4px; border-left: 4px solid #1a237e; }
+        .btn-group { display: flex; gap: 4px; margin: 10px 0; flex-wrap: wrap; }
+        .info-msg { font-size: 10px; color: #1a237e; margin-bottom: 5px; opacity: 0.7; }
         
         button { 
             flex: 1;
-            min-width: 60px;
-            padding: 10px 5px; 
+            padding: 6px 2px; 
             border: none; 
             border-radius: 4px; 
             background: #2196F3; 
             color: white; 
             cursor: pointer; 
-            font-weight: bold; 
             font-size: 11px; 
         }
         button.active { background: #1a237e; }
-        h2 { color: #1a237e; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-top: 0; font-size: 1.2rem; }
-        
-        /* --- ESTILOS DE ACTIVOS --- */
-        .assets-wrapper {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: flex-end;
-            gap: 40px;
-            margin: 20px 0;
-        }
-        .tanque-container {
-            width: 100px;
-            height: 160px;
-            border: 3px solid #333;
-            border-radius: 8px 8px 4px 4px;
-            position: relative;
-            background: #f0f0f0;
-            overflow: hidden;
-            box-shadow: inset 4px 0 8px rgba(0,0,0,0.05);
-        }
-        .agua {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            height: 0%;
-            background: linear-gradient(to top, #1976D2, #64B5F6);
-            transition: height 0.4s ease;
-        }
-        .bomba-container {
-            position: relative;
-            width: 200px;
-            padding: 10px;
-            border: 1px solid #eee;
-            border-radius: 8px;
-        }
-        .bomba-img { width: 100%; display: block; }
-        .bomba-overlay {
-            position: absolute;
-            top: 10px; left: 10px;
-            width: calc(100% - 20px);
-            height: calc(100% - 20px);
-            mix-blend-mode: overlay;
-            opacity: 0;
-            transition: all 0.4s ease;
-            pointer-events: none;
-        }
-        .simulador-box {
-            background: #fff3e0;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px dashed #ff9800;
-            margin-bottom: 20px;
-            max-width: 600px;
-            margin-left: auto; margin-right: auto;
-        }
-
+        .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        h2 { color: #1a237e; margin: 0; font-size: 1rem; }
         canvas { width: 100% !important; max-height: 280px; }
-
-        @media (min-width: 900px) {
-            .container { display: grid; grid-template-columns: 1fr 1fr; width: 95%; }
-            .panel-full { grid-column: span 2; }
-            body { padding: 20px; }
-        }
     </style>
 </head>
 <body>
     <div class="nav-bar">
-        <a href="/dashboard" class="active">📊 Dashboard</a>
+        <a href="/dashboard" class="active">📊 Telemetría</a>
         <a href="/">🏭 SCADA HMI</a>
     </div>
 
     <div class="header">
-        <h1 style="color: #1a237e; margin: 0; font-size: 1.5rem;">Panel de Control - USAC</h1>
-        <div class="nivel-badge"><span class="nivel-label">NIVEL ACTUAL</span><span id="txt-actual">0.0%</span></div>
+        <h1 style="color: #1a237e; margin: 0; font-size: 1.5rem;">Panel de Control de Telemetría</h1>
+        <div style="display: flex; gap: 10px;">
+            <div class="nivel-badge"><span class="nivel-label">TANQUE 1</span><span id="txt-actual-1">0.0%</span></div>
+            <div class="nivel-badge"><span class="nivel-label">TANQUE 2</span><span id="txt-actual-2">0.0%</span></div>
+        </div>
     </div>
 
     <div class="container">
-        <div class="panel">
-            <h2>Tiempo Real</h2>
-            <canvas id="realtimeChart"></canvas>
-        </div>
-
-        <div class="panel">
-            <h2>Historial (Cloudflare D1)</h2>
-            <div id="status-msg" class="info-msg">🔍 Haz clic para ver detalle | Doble clic para resetear</div>
-            <div class="btn-group">
-                <button onclick="cargarHistorial(1, this)">1M</button>
-                <button onclick="cargarHistorial(5, this)">5M</button>
-                <button onclick="cargarHistorial(60, this)">1H</button>
-                <button onclick="cargarHistorial(1440, this)">1D</button>
-                <button onclick="cargarHistorial(43200, this)">1MES</button>
-                <button style="background:#ff9800" onclick="resetView(this)">RESETEAR</button>
-            </div>
-            <canvas id="historyChart"></canvas>
-        </div>
-
-        <div class="panel panel-full">
-            <h2>Monitoreo de Activos</h2>
-            
-            <div class="simulador-box">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <label style="font-size: 12px; font-weight: bold; color: #e65100;">🛠️ SIMULACIÓN MANUAL:</label>
-                    <input type="checkbox" id="check-manual">
+        ${[1, 2].map(id => `
+            <div class="panel">
+                <h2>Monitoreo de Tanque ${id}</h2>
+                <div id="status-msg-${id}" class="info-msg">⏱️ Modo: Tiempo Real activado</div>
+                <div class="btn-group">
+                    <button onclick="activarRT(${id}, this)" class="active" style="background:#4caf50">VIVO</button>
+                    <button onclick="cargarHistorial(${id}, 1, this)">1M</button>
+                    <button onclick="cargarHistorial(${id}, 5, this)">5M</button>
+                    <button onclick="cargarHistorial(${id}, 60, this)">1H</button>
+                    <button onclick="cargarHistorial(${id}, 1440, this)">1D</button>
+                    <button onclick="cargarHistorial(${id}, 43200, this)">1MES</button>
+                    <button style="background:#ff9800" onclick="resetView(${id})">RESETEAR</button>
                 </div>
-                <input type="range" id="simulador-nivel" min="0" max="100" value="0" style="width: 100%;">
+                <canvas id="chart-${id}"></canvas>
             </div>
-
-            <div class="assets-wrapper">
-                <div style="text-align:center">
-                    <div class="tanque-container"><div id="agua-nivel" class="agua"></div></div>
-                    <p style="font-size:11px; font-weight:bold; color:#555; margin-top:5px">TANQUE NIVEL</p>
-                </div>
-                <div style="text-align:center">
-                    <div class="bomba-container">
-                        <img src="https://res.cloudinary.com/drov8gutj/image/upload/v1777261467/HeavyDutyPlasticCentrifugalPump_pmvqm8.svg" class="bomba-img">
-                        <div id="bomba-status-overlay" class="bomba-overlay"></div>
-                    </div>
-                    <p id="bomba-label" style="font-size:11px; font-weight:bold; color:#666; margin-top:5px">ESTADO: APAGADO</p>
-                </div>
-            </div>
-        </div>
+        `).join('')}
     </div>
 
     <script>
         // --- VARIABLES Y CONFIG ---
-        let currentMode = 'trend';
-        let rawDataFromDB = [];
-        const overlay = document.getElementById('bomba-status-overlay');
-        const agua = document.getElementById('agua-nivel');
-        const label = document.getElementById('bomba-label');
-        const slider = document.getElementById('simulador-nivel');
-        const checkManual = document.getElementById('check-manual');
-
-        // Paleta de 10 colores según nivel
-        const escalaColores = [
-            "#BDBDBD", "#90CAF9", "#64B5F6", "#42A5F5", "#2196F3", 
-            "#4CAF50", "#8BC34A", "#FFC107", "#FF9800", "#F44336"
-        ];
-
-        function actualizarHMI(val) {
-            const num = parseFloat(val);
-            document.getElementById('txt-actual').innerText = num.toFixed(1) + '%';
-            agua.style.height = num + '%';
-
-            // Lógica de colores (10 niveles)
-            let colorIdx = Math.min(Math.floor(num / 10), 9);
-            overlay.style.backgroundColor = escalaColores[colorIdx];
-            overlay.style.opacity = num > 2 ? "1" : "0";
-
-            if(num > 90) { label.innerText = "ALERTA: CRÍTICO"; label.style.color = "#F44336"; }
-            else if(num > 10) { label.innerText = "ESTADO: OPERANDO"; label.style.color = "#4CAF50"; }
-            else { label.innerText = "ESTADO: APAGADO"; label.style.color = "#666"; }
-        }
+        const tankCharts = {};
+        const isRTMode = { 1: true, 2: true };
+        const rawDataFromDB = { 1: [], 2: [] };
+        const currentMode = { 1: 'trend', 2: 'trend' };
 
         // --- CHARTS ---
         const commonOptions = {
@@ -257,81 +148,82 @@ export const renderDashboard = (config) => `
             scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
         };
 
-        const rtChart = new Chart(document.getElementById('realtimeChart'), {
-            type: 'line',
-            data: { labels: [], datasets: [{ label: 'Nivel %', data: [], borderColor: '#2196F3', fill: true, tension: 0.4 }] },
-            options: commonOptions
-        });
-
-        const ctxHist = document.getElementById('historyChart');
-        const histChart = new Chart(ctxHist, {
-            type: 'line',
-            data: { labels: [], datasets: [{ label: 'Historial', data: [], borderColor: '#4CAF50', fill: true }] },
-            options: { ...commonOptions, onClick: (e, el) => {
-                if (el.length > 0 && currentMode === 'trend') {
-                    const labelValue = histChart.data.labels[el[0].index];
-                    const original = rawDataFromDB.find(r => r.fecha.includes(labelValue));
-                    if(original) cargarHistorial(null, null, original.fecha);
-                }
-            }}
-        });
+        function initChart(id) {
+            const ctx = document.getElementById('chart-' + id);
+            tankCharts[id] = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Nivel %', data: [], borderColor: '#2196F3', backgroundColor: 'rgba(33, 150, 243, 0.1)', fill: true, tension: 0.4 }] },
+                options: { ...commonOptions, onClick: (e, el) => {
+                    if (!isRTMode[id] && el.length > 0 && currentMode[id] === 'trend') {
+                        const labelValue = tankCharts[id].data.labels[el[0].index];
+                        const original = rawDataFromDB[id].find(r => r.fecha.includes(labelValue));
+                        if(original) cargarHistorial(id, null, null, original.fecha);
+                    }
+                }}
+            });
+        }
 
         // --- FIREBASE ---
         const firebaseConfig = { databaseURL: "${config.FIREBASE_URL || 'https://esp32-hmi-default-rtdb.firebaseio.com/'}" };
         firebase.initializeApp(firebaseConfig);
-        const dbRef = firebase.database().ref("monitoreo/sensor1");
 
-        dbRef.on('value', (snapshot) => {
-            if(!checkManual.checked) {
-                const val = snapshot.val() || 0;
-                actualizarHMI(val);
-                const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-                if (rtChart.data.labels.length > 20) { rtChart.data.labels.shift(); rtChart.data.datasets[0].data.shift(); }
-                rtChart.data.labels.push(now); rtChart.data.datasets[0].data.push(val);
-                rtChart.update('none');
-            }
-        });
+        function setupFirebase(id) {
+            const dbRef = firebase.database().ref("monitoreo/sensor" + id);
+            dbRef.on('value', (snapshot) => {
+                const val = snapshot.val() || 0; // Obtener el valor del sensor
+                document.getElementById('txt-actual-' + id).innerText = parseFloat(val).toFixed(1) + '%'; // Actualizar solo el porcentaje
 
-        slider.addEventListener('input', (e) => {
-            if(checkManual.checked) actualizarHMI(e.target.value);
-        });
+                if (isRTMode[id]) {
+                    const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+                    const chart = tankCharts[id];
+                    if (chart.data.labels.length > 25) { 
+                        chart.data.labels.shift(); 
+                        chart.data.datasets[0].data.shift(); 
+                    }
+                    chart.data.labels.push(now);
+                    chart.data.datasets[0].data.push(val);
+                    chart.update('none');
+                }
+            });
+        }
 
         // --- LÓGICA DE HISTORIAL D1 ---
-        async function cargarHistorial(limit, btn, targetDate = null) {
-            document.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
+        async function cargarHistorial(tankId, limit, btn, targetDate = null) {
+            isRTMode[tankId] = false;
+            const panel = btn ? btn.closest('.panel') : document.getElementById('status-msg-' + tankId).closest('.panel');
+            panel.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
             if(btn) btn.classList.add('active'); 
             
-            const statusMsg = document.getElementById('status-msg');
+            const statusMsg = document.getElementById('status-msg-' + tankId);
             const originalMsg = targetDate ? "📍 Modo Detalle. Doble clic para volver." : "🔍 Clic para detalle | Doble clic reset";
             statusMsg.innerText = "⏳ Cargando datos...";
 
-            let url = targetDate ? '/get-history?target=' + encodeURIComponent(targetDate) : '/get-history?limit=' + limit;
-            currentMode = (targetDate || limit <= 5) ? 'zoom' : 'trend';
+            let url = targetDate ? '/get-history?target=' + encodeURIComponent(targetDate) : '/get-history?limit=' + limit + '&sensor=' + tankId;
+            currentMode[tankId] = (targetDate || limit <= 5) ? 'zoom' : 'trend';
 
             try {
                 const response = await fetch(url);
                 if (!response.ok) throw new Error("Error en servidor");
                 const data = await response.json();
-                rawDataFromDB = targetDate ? data : [...data].reverse();
+                rawDataFromDB[tankId] = targetDate ? data : [...data].reverse();
                 
                 let labelsFinales = [], datosFinales = [];
                 const UMBRAL = 3; 
 
-                if (currentMode === 'zoom') {
-                    rawDataFromDB.forEach(entry => {
+                if (currentMode[tankId] === 'zoom') {
+                    rawDataFromDB[tankId].forEach(entry => {
                         const lecturas = entry.lecturas ? JSON.parse(entry.lecturas) : [entry.promedio];
-                        // Tratamos la fecha como UTC y convertimos a local
                         const fechaLocal = new Date(entry.fecha.replace(' ','T') + 'Z');
                         const hora = fechaLocal.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
                         lecturas.forEach((v, i) => { labelsFinales.push(i === 0 ? hora : ""); datosFinales.push(v); });
                     });
                 } else {
-                    for (let i = 0; i < rawDataFromDB.length; i++) {
-                        const actual = rawDataFromDB[i];
+                    for (let i = 0; i < rawDataFromDB[tankId].length; i++) {
+                        const actual = rawDataFromDB[tankId][i];
                         const fechaActualLocal = new Date(actual.fecha.replace(' ','T') + 'Z');
                         
                         if (i > 0) {
-                            const fechaPreviaLocal = new Date(rawDataFromDB[i-1].fecha.replace(' ','T') + 'Z');
+                            const fechaPreviaLocal = new Date(rawDataFromDB[tankId][i-1].fecha.replace(' ','T') + 'Z');
                             const diff = (fechaActualLocal - fechaPreviaLocal) / 60000;
                             if (diff > UMBRAL) { labelsFinales.push(""); datosFinales.push(0); }
                         }
@@ -344,9 +236,11 @@ export const renderDashboard = (config) => `
                         datosFinales.push(actual.promedio);
                     }
                 }
-                histChart.data.labels = labelsFinales;
-                histChart.data.datasets[0].data = datosFinales;
-                histChart.update();
+                const chart = tankCharts[tankId];
+                chart.data.datasets[0].borderColor = '#4CAF50';
+                chart.data.labels = labelsFinales;
+                chart.data.datasets[0].data = datosFinales;
+                chart.update();
                 statusMsg.innerText = originalMsg;
             } catch(e) { 
                 console.error(e);
@@ -354,10 +248,33 @@ export const renderDashboard = (config) => `
             }
         }
 
-        ctxHist.addEventListener('dblclick', () => resetView());
-        function resetView() { cargarHistorial(60, document.querySelector('.btn-group button:nth-child(3)')); }
+        function activarRT(tankId, btn) {
+            isRTMode[tankId] = true;
+            const panel = btn.closest('.panel');
+            panel.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            const chart = tankCharts[tankId];
+            chart.data.labels = [];
+            chart.data.datasets[0].data = [];
+            chart.data.datasets[0].borderColor = '#2196F3';
+            chart.update();
+            document.getElementById('status-msg-' + tankId).innerText = "⏱️ Modo: Tiempo Real activado";
+        }
 
-        cargarHistorial(60);
+        function resetView(tankId) { 
+            const panel = document.getElementById('status-msg-' + tankId).closest('.panel');
+            cargarHistorial(tankId, 60, panel.querySelector('.btn-group button:nth-child(4)')); 
+        }
+
+        window.onload = () => {
+            [1, 2].forEach(id => {
+                initChart(id);
+                setupFirebase(id);
+                cargarHistorial(id, 60);
+                document.getElementById('chart-' + id).addEventListener('dblclick', () => resetView(id));
+            });
+        };
     </script>
 </body>
 </html>
