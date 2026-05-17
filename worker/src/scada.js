@@ -153,6 +153,13 @@ export async function handleScadaRequest() {
         .heartbeat { width: 12px; height: 12px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; animation: heartbeat-pulse 1s infinite; }
         @keyframes heartbeat-pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
 
+        /* --- BALANCE DE MATERIA / OEE --- */
+        .oee-card { grid-column: span 2; background: #fdf2f8; border: 1px solid #fbcfe8; padding: 15px; border-radius: 12px; }
+        .oee-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+        .oee-box { background: #ffffff; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #f9a8d4; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .oee-val { display: block; font-size: 1.1rem; font-weight: 800; color: #be185d; }
+        .oee-label { font-size: 0.55rem; text-transform: uppercase; color: #db2777; letter-spacing: 0.5px; font-weight: bold; }
+
         .nav-bar {
             display: flex;
             gap: 15px;
@@ -199,6 +206,19 @@ export async function handleScadaRequest() {
             <div class="status-dot"></div>
             <span>Firebase DB: <b style="color: #22c55e;">CONECTADO</b></span>
             <span style="margin-left: auto; color: #94a3b8;">Sincronización: <span id="last-sync">hace 0s</span></span>
+          </div>
+        </div>
+
+        <!-- TARJETA DE BALANCE DE MATERIA Y OEE -->
+        <div class="card oee-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label style="color: #be185d; font-size: 0.8rem; font-weight: 800;">BALANCE DE MATERIA & EFICIENCIA (OEE)</label>
+          </div>
+          <div class="oee-grid">
+            <div class="oee-box"><span class="oee-val" id="oee-perc">94.2 <small style="font-size:0.5rem">%</small></span><span class="oee-label">OEE Global</span></div>
+            <div class="oee-box"><span class="oee-val" id="flow-rate">0.0 <small style="font-size:0.5rem">L/min</small></span><span class="oee-label">Caudal Est.</span></div>
+            <div class="oee-box"><span class="oee-val" id="total-vol">124.5 <small style="font-size:0.5rem">L</small></span><span class="oee-label">Vol. Total</span></div>
+            <div class="oee-box"><span class="oee-val" id="runtime-val">08:24 <small style="font-size:0.5rem">h</small></span><span class="oee-label">Runtime</span></div>
           </div>
         </div>
 
@@ -315,6 +335,32 @@ export async function handleScadaRequest() {
           if(diff > 5 && Math.random() > 0.8) lastSyncTime = Date.now();
         }
 
+        // --- LÓGICA DE OEE Y BALANCE ---
+        let lastLevel = 50;
+        let totalAccumulated = 124.5;
+        
+        function updateOEEAndFlow() {
+          const currentLevel = parseFloat(document.getElementById('levelSlider').value);
+          const deltaLevel = currentLevel - lastLevel;
+          
+          // Cálculo de Caudal: Asumiendo tanque de 1000L, 1% = 10L
+          // Intervalo de ejecución: 2s (1/30 min) -> Caudal = (deltaL * 10) / (1/30)
+          const estimatedFlow = Math.abs((deltaLevel * 10) * 30).toFixed(1);
+          
+          if (deltaLevel > 0) totalAccumulated += deltaLevel * 10;
+          
+          // Simulación de métricas OEE basadas en disponibilidad
+          const availability = (cardStates[1] ? 98 : 45); // Si la bomba está ON
+          const performance = (95 + Math.random() * 4);
+          const oeeValue = ((availability * performance) / 100).toFixed(1);
+
+          document.getElementById('flow-rate').innerHTML = \`\${estimatedFlow} <small style="font-size:0.5rem">L/min</small>\`;
+          document.getElementById('oee-perc').innerHTML = \`\${oeeValue} <small style="font-size:0.5rem">%</small>\`;
+          document.getElementById('total-vol').innerHTML = \`\${Math.floor(totalAccumulated)} <small style="font-size:0.5rem">L</small>\`;
+          
+          lastLevel = currentLevel;
+        }
+
         // --- LÓGICA DE ALARMAS ---
         let alarmasActivas = [
           { id: 101, cod: "T1-LVL-HIGH", msg: "Tanque 1: Nivel Crítico (Sobrellenado)", nivel: "critical", hora: "10:45:12" },
@@ -400,7 +446,12 @@ export async function handleScadaRequest() {
         }
 
         window.onload = () => {
-          renderAlarms(); updateSystemLevel(); updatePipesColor(); updateTelemetry(); setInterval(updateTelemetry, 2000);
+          renderAlarms(); 
+          updateSystemLevel(); 
+          updatePipesColor(); 
+          updateTelemetry(); 
+          updateOEEAndFlow();
+          setInterval(() => { updateTelemetry(); updateOEEAndFlow(); }, 2000);
           for(let i=0; i<cardStates.length; i++) updateCardColor(i);
         };
       </script>
