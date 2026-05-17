@@ -252,7 +252,7 @@ export const renderDashboard = (config) => `
                         }
                         chart.data.labels.push(now);
                         chart.data.datasets[0].data.push(val);
-                        chart.update('none'); // Update sin animación para RT
+                        chart.update('none'); 
                     }
                 }
             });
@@ -279,8 +279,16 @@ export const renderDashboard = (config) => `
             });
 
             try {
-                // CORRECCIÓN: Agregar la URL completa y absoluta de tu Cloudflare Worker
-                const response = await fetch('https://esp32-hmi-monitor.samsepiol-cs30.workers.dev/api/telemetria?rango=' + rango);
+                // Estrategia de URL Híbrida:
+                // Si es local (127.0.0.1 o localhost) usamos URL absoluta.
+                // Si es producción, usamos ruta relativa para evitar peticiones cruzadas (CORS).
+                const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+                const apiBase = isLocal ? 'https://esp32-hmi-monitor.samsepiol-cs30.workers.dev' : '';
+                
+                const response = await fetch(apiBase + '/api/telemetria?rango=' + rango);
+                
+                console.log("Consultando rango:", rango);
+                
                 if (!response.ok) throw new Error("Error en la respuesta del Worker");
                 
                 const data = await response.json();
@@ -323,9 +331,13 @@ export const renderDashboard = (config) => `
 
             [1, 2, 3].forEach(id => {
                 const chart = tankCharts[id];
-                chart.data.labels = [];
-                chart.data.datasets[0].data = [];
-                chart.update();
+                if (chart) {
+                    // Solo limpiar si realmente queremos reiniciar la vista, 
+                    // pero mantenemos la estructura para que los nuevos datos entren
+                    chart.data.labels = [];
+                    chart.data.datasets[0].data = [];
+                    chart.update();
+                }
                 document.getElementById('status-msg-' + id).innerText = "⏱️ Modo: Tiempo Real activado";
             });
         }

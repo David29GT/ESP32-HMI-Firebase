@@ -9,11 +9,25 @@ import { renderManifest } from './manifest.js'; // Importamos el nuevo bloque
 import { handleScadaRequest } from './scada.js';
 
 // URL del JSON generado por GitHub Actions
-const GITHUB_RAW_URL = "https://raw.githubusercontent.com/David29GT/ESP32-HMI-Firebase/refs/heads/main/backend/datos_grafica.json?token=GHSAT0AAAAAADZZC5Y5R4J4SDW7MRW5Q4YU2QKBK4Q";
-const CORS_HEADERS = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" };
+const GITHUB_RAW_URL = "https://raw.githubusercontent.com/David29GT/ESP32-HMI-Firebase/main/backend/datos_grafica.json";
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, X-API-Key",
+  "Content-Type": "application/json"
+};
 
 export default {
   async fetch(request, env) {
+    // --- MANEJO DE CORS (PREFLIGHT) ---
+    // Las peticiones OPTIONS son enviadas por el navegador para verificar permisos
+    if (request.method === "OPTIONS") {
+      return new Response(null, { 
+        headers: CORS_HEADERS 
+      });
+    }
+
     const url = new URL(request.url);
 
     // --- RUTA A: MANIFIESTO (Identidad de la App) ---
