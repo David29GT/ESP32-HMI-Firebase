@@ -123,12 +123,11 @@ export const renderDashboard = (config) => `
                 <h2>Monitoreo de Tanque ${id}</h2>
                 <div id="status-msg-${id}" class="info-msg">⏱️ Modo: Tiempo Real activado</div>
                 <div class="btn-group">
-                    <button onclick="activarRT(${id}, this)" class="active" style="background:#4caf50">VIVO</button>
-                    <button onclick="cargarHistorial(${id}, 1, this)">1M</button>
-                    <button onclick="cargarHistorial(${id}, 5, this)">5M</button>
-                    <button onclick="cargarHistorial(${id}, 60, this)">1H</button>
-                    <button onclick="cargarHistorial(${id}, 1440, this)">1D</button>
-                    <button onclick="cargarHistorial(${id}, 43200, this)">1MES</button>
+                    <button onclick="activarRT(this)" class="active" style="background:#4caf50">VIVO</button>
+                    <button onclick="cargarHistorial('1M', this)">1M</button>
+                    <button onclick="cargarHistorial('5M', this)">5M</button>
+                    <button onclick="cargarHistorial('1H', this)">1H</button>
+                    <button onclick="cargarHistorial('1D', this)">1D</button>
                     <button style="background:#ff9800" onclick="resetView(${id})">RESETEAR</button>
                 </div>
                 <canvas id="chart-${id}"></canvas>
@@ -139,29 +138,47 @@ export const renderDashboard = (config) => `
     <script>
         // --- VARIABLES Y CONFIG ---
         const tankCharts = {};
-        const isRTMode = { 1: true, 2: true, 3: true };
-        const rawDataFromDB = { 1: [], 2: [], 3: [], 3: [] };
-        const currentMode = { 1: 'trend', 2: 'trend', 3: 'trend' };
+        let isRTMode = true; // Estado global del flujo (Tiempo Real vs Histórico)
 
         // --- CHARTS ---
         const commonOptions = {
             responsive: true, maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
+            animation: { duration: 800 },
+            scales: { 
+                y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } },
+                x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } }
+            },
+            plugins: { legend: { display: false } }
         };
 
         function initChart(id) {
             const ctx = document.getElementById('chart-' + id);
             tankCharts[id] = new Chart(ctx, {
                 type: 'line',
-                data: { labels: [], datasets: [{ label: 'Nivel %', data: [], borderColor: '#2196F3', backgroundColor: 'rgba(33, 150, 243, 0.1)', fill: true, tension: 0.4 }] },
-                options: { ...commonOptions, onClick: (e, el) => {
-                    if (!isRTMode[id] && el.length > 0 && currentMode[id] === 'trend') {
-                        const labelValue = tankCharts[id].data.labels[el[0].index];
-                        const original = rawDataFromDB[id].find(r => r.fecha.includes(labelValue));
-                        if(original) cargarHistorial(id, null, null, original.fecha);
-                    }
-                }}
+                data: { 
+                    labels: [], 
+                    datasets: [{ 
+                        label: 'Nivel %', 
+                        data: [], 
+                        borderColor: id === 1 ? '#2196F3' : id === 2 ? '#4caf50' : '#ff9800', 
+                        backgroundColor: 'rgba(0,0,0,0.05)', 
+                        fill: true, 
+                        tension: 0.4,
+                        pointRadius: 2
+                    }] 
+                },
+                options: commonOptions
             });
+        }
+
+        // --- FUNCIÓN MODULAR DE ACTUALIZACIÓN ---
+        function actualizarGrafica(id, timestamps, valores) {
+            const chart = tankCharts[id];
+            if (!chart) return;
+            
+            chart.data.labels = timestamps;
+            chart.data.datasets[0].data = valores;
+            chart.update();
         }
 
         // --- FIREBASE ---
@@ -174,107 +191,95 @@ export const renderDashboard = (config) => `
                 const val = snapshot.val() || 0; // Obtener el valor del sensor
                 document.getElementById('txt-actual-' + id).innerText = parseFloat(val).toFixed(1) + '%'; // Actualizar solo el porcentaje
 
-                if (isRTMode[id]) {
+                if (isRTMode) {
                     const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
                     const chart = tankCharts[id];
-                    if (chart.data.labels.length > 25) { 
+                    if (chart.data.labels.length > 20) { 
                         chart.data.labels.shift(); 
                         chart.data.datasets[0].data.shift(); 
                     }
                     chart.data.labels.push(now);
                     chart.data.datasets[0].data.push(val);
-                    chart.update('none');
+                    chart.update('none'); // Update sin animación para RT
                 }
             });
         }
 
-        // --- LÓGICA DE HISTORIAL D1 ---
-        async function cargarHistorial(tankId, limit, btn, targetDate = null) {
-            isRTMode[tankId] = false;
-            const panel = btn ? btn.closest('.panel') : document.getElementById('status-msg-' + tankId).closest('.panel');
-            panel.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
-            if(btn) btn.classList.add('active'); 
-            
-            const statusMsg = document.getElementById('status-msg-' + tankId);
-            const originalMsg = targetDate ? "📍 Modo Detalle. Doble clic para volver." : "🔍 Clic para detalle | Doble clic reset";
-            statusMsg.innerText = "⏳ Cargando datos...";
+        // --- LÓGICA DE HISTORIAL (API CLOUDFLARE + GITHUB) ---
+        async function cargarHistorial(rango, btn) {
+            isRTMode = false; // Pausamos el tiempo real
 
-            let url = targetDate ? '/get-history?target=' + encodeURIComponent(targetDate) : '/get-history?limit=' + limit + '&sensor=' + tankId;
-            currentMode[tankId] = (targetDate || limit <= 5) ? 'zoom' : 'trend';
+            // Gestión visual de botones
+            document.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
+            if(btn) btn.classList.add('active');
+
+            // Actualizar mensajes de estado
+            [1, 2, 3].forEach(id => {
+                document.getElementById('status-msg-' + id).innerText = "⏳ Consultando API...";
+            });
 
             try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error("Error en servidor");
-                const data = await response.json();
-                rawDataFromDB[tankId] = targetDate ? data : [...data].reverse();
+                // CORRECCIÓN: Agregar la URL completa y absoluta de tu Cloudflare Worker
+                const response = await fetch('https://esp32-hmi-monitor.samsepiol-cs30.workers.dev/api/telemetria?rango=' + rango);
+                if (!response.ok) throw new Error("Error en la respuesta del Worker");
                 
-                let labelsFinales = [], datosFinales = [];
-                const UMBRAL = 3; 
+                const data = await response.json();
 
-                if (currentMode[tankId] === 'zoom') {
-                    rawDataFromDB[tankId].forEach(entry => {
-                        const lecturas = entry.lecturas ? JSON.parse(entry.lecturas) : [entry.promedio];
-                        const fechaLocal = new Date(entry.fecha.replace(' ','T') + 'Z');
-                        const hora = fechaLocal.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                        lecturas.forEach((v, i) => { labelsFinales.push(i === 0 ? hora : ""); datosFinales.push(v); });
+                if (!data || data.length === 0) {
+                    [1, 2, 3].forEach(id => {
+                        document.getElementById('status-msg-' + id).innerText = "⚠️ No hay datos en este rango";
                     });
-                } else {
-                    for (let i = 0; i < rawDataFromDB[tankId].length; i++) {
-                        const actual = rawDataFromDB[tankId][i];
-                        const fechaActualLocal = new Date(actual.fecha.replace(' ','T') + 'Z');
-                        
-                        if (i > 0) {
-                            const fechaPreviaLocal = new Date(rawDataFromDB[tankId][i-1].fecha.replace(' ','T') + 'Z');
-                            const diff = (fechaActualLocal - fechaPreviaLocal) / 60000;
-                            if (diff > UMBRAL) { labelsFinales.push(""); datosFinales.push(0); }
-                        }
-                        
-                        const labelStr = limit > 1440 
-                            ? fechaActualLocal.toLocaleDateString() 
-                            : fechaActualLocal.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                            
-                        labelsFinales.push(labelStr);
-                        datosFinales.push(actual.promedio);
-                    }
+                    return;
                 }
-                const chart = tankCharts[tankId];
-                chart.data.datasets[0].borderColor = '#4CAF50';
-                chart.data.labels = labelsFinales;
-                chart.data.datasets[0].data = datosFinales;
-                chart.update();
-                statusMsg.innerText = originalMsg;
-            } catch(e) { 
-                console.error(e);
-                statusMsg.innerText = "❌ Error al cargar datos del historial";
+
+                // Procesamiento de datos: Mapeo de columnas
+                const timestamps = data.map(item => item.timestamp.split(' ')[1]); // Solo la hora para el eje X
+                const t1_data = data.map(item => item.tanque1_nivel);
+                const t2_data = data.map(item => item.tanque2_nivel);
+                const t3_data = data.map(item => item.tanque3_nivel);
+
+                // Actualización modular de las 3 gráficas
+                actualizarGrafica(1, timestamps, t1_data);
+                actualizarGrafica(2, timestamps, t2_data);
+                actualizarGrafica(3, timestamps, t3_data);
+
+                [1, 2, 3].forEach(id => {
+                    document.getElementById('status-msg-' + id).innerText = "📊 Histórico: " + rango;
+                });
+
+            } catch (error) {
+                console.error("SCADA Error:", error);
+                [1, 2, 3].forEach(id => {
+                    document.getElementById('status-msg-' + id).innerText = "❌ Error al conectar con el Backend";
+                });
             }
         }
 
-        function activarRT(tankId, btn) {
-            isRTMode[tankId] = true;
-            const panel = btn.closest('.panel');
-            panel.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            const chart = tankCharts[tankId];
-            chart.data.labels = [];
-            chart.data.datasets[0].data = [];
-            chart.data.datasets[0].borderColor = '#2196F3';
-            chart.update();
-            document.getElementById('status-msg-' + tankId).innerText = "⏱️ Modo: Tiempo Real activado";
+        function activarRT(btn) {
+            isRTMode = true;
+            document.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
+            if(btn) btn.classList.add('active');
+            else document.querySelectorAll('button[style*="background:#4caf50"]').forEach(b => b.classList.add('active'));
+
+            [1, 2, 3].forEach(id => {
+                const chart = tankCharts[id];
+                chart.data.labels = [];
+                chart.data.datasets[0].data = [];
+                chart.update();
+                document.getElementById('status-msg-' + id).innerText = "⏱️ Modo: Tiempo Real activado";
+            });
         }
 
         function resetView(tankId) { 
-            const panel = document.getElementById('status-msg-' + tankId).closest('.panel');
-            cargarHistorial(tankId, 60, panel.querySelector('.btn-group button:nth-child(4)')); 
+            activarRT();
         }
 
         window.onload = () => {
             [1, 2, 3].forEach(id => {
                 initChart(id);
                 setupFirebase(id);
-                cargarHistorial(id, 60);
-                document.getElementById('chart-' + id).addEventListener('dblclick', () => resetView(id));
             });
+            activarRT();
         };
     </script>
 </body>

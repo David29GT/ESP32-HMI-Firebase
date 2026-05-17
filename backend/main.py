@@ -7,11 +7,13 @@ from firebase_admin import credentials, db
 import pandas as pd
 
 # CONFIGURACIÓN GENERAL
-RUTA_CRED_LOCAL = "backend/serviceAccountKey.json"
+# Usamos rutas absolutas basadas en la ubicación de este script para evitar errores de ejecución
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RUTA_CRED_LOCAL = os.path.join(BASE_DIR, "serviceAccountKey.json")
 # Esta URL la tomé directo de tus constantes de Arduino
 URL_FIREBASE = "https://esp32-hmi-default-rtdb.firebaseio.com/" 
-NOMBRE_DB = "backend/historico_scada.db"
-ARCHIVO_JSON_SALIDA = "backend/datos_grafica.json"
+NOMBRE_DB = os.path.join(BASE_DIR, "historico_scada.db")
+ARCHIVO_JSON_SALIDA = os.path.join(BASE_DIR, "datos_grafica.json")
 
 def inicializar_firebase():
     """Inicializa la conexión con Firebase de forma segura."""
@@ -92,25 +94,25 @@ def generar_json_optimizado():
     """Usa Pandas para estructurar los datos históricos y escupir un JSON ultraliviano."""
     conexion = sqlite3.connect(NOMBRE_DB)
     
-    # Extraemos los últimos 100 registros para no sobrecargar las gráficas del frontend
+    # Extraemos los últimos 1000 registros para tener una ventana histórica decente
     query = """
         SELECT timestamp, variable, valor 
         FROM telemetria 
         ORDER BY id DESC 
-        LIMIT 400 
+        LIMIT 1000 
     """
     df = pd.read_sql_query(query, conexion)
     conexion.close()
 
     if df.empty:
+        print("⚠️ No hay datos en la DB para exportar.")
         return
 
-    # Invertimos el orden para que la gráfica se dibuje cronológicamente de izquierda a derecha
     df = df.iloc[::-1]
 
-    # Pivoteamos la tabla con Pandas para transformarla en un formato JSON limpio de serie temporal
-    # De: [timestamp, variable, valor] -> A: [timestamp, tanque1_nivel, tanque2_nivel...]
-    df_pivoted = df.pivot(index='timestamp', columns='variable', values='valor').reset_index()
+    # Usamos pivot_table en lugar de pivot para manejar posibles duplicados de timestamp
+    # De: [timestamp, variable, valor] -> A: [timestamp, tanque1_nivel, tanque2_nivel, tanque3_nivel, bomba_estado]
+    df_pivoted = df.pivot_table(index='timestamp', columns='variable', values='valor', aggfunc='mean').reset_index()
     
     # Llenamos valores nulos si la telemetría falló en algún punto
     df_pivoted = df_pivoted.ffill().bfill()
