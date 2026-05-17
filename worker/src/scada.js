@@ -102,6 +102,31 @@ export async function handleScadaRequest() {
         input[type=range].scada-range { width: 100%; cursor: pointer; }
         .card.disabled-ui { opacity: 0.6; }
         .card.disabled-ui .canvas, .card.disabled-ui .card-controls-panel { pointer-events: none; filter: grayscale(1); }
+        
+        /* --- SISTEMA DE ALARMAS --- */
+        .alarms-section { width: 100%; max-width: 900px; margin-bottom: 20px; }
+        .alarm-card {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 18px; border-radius: 10px; margin-bottom: 8px;
+            font-size: 0.8rem; font-weight: 700; border: 2px solid transparent;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .alarm-card.critical { background: #fee2e2; color: #991b1b; border-color: #ef4444; animation: blink-critical 1.5s infinite; }
+        .alarm-card.warning { background: #fef3c7; color: #92400e; border-color: #f59e0b; animation: blink-warning 2s infinite; }
+        
+        @keyframes blink-critical {
+          0% { box-shadow: 0 0 0 #ef4444; }
+          50% { box-shadow: 0 0 12px #ef4444; border-color: #b91c1c; }
+          100% { box-shadow: 0 0 0 #ef4444; }
+        }
+        @keyframes blink-warning {
+          0% { border-color: #f59e0b; }
+          50% { border-color: #b45309; }
+          100% { border-color: #f59e0b; }
+        }
+        .btn-ack { background: #334155; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; transition: 0.2s; }
+        .btn-ack:hover { background: #1e293b; }
+
         .nav-bar {
             display: flex;
             gap: 15px;
@@ -127,6 +152,7 @@ export async function handleScadaRequest() {
         <a href="/scada" class="active">🏭 SCADA HMI</a>
       </div>
       <h2 style="margin-bottom: 20px; color: #334155;">SCADA HMI - USAC</h2>
+      <div id="alarms-list" class="alarms-section"></div>
       <div class="dashboard">
         ${MIS_TARJETAS.map((t, idx) => `
           <div class="card" id="card-container-${idx}" data-independent="${t.pintadoIndependiente}" data-static-color="${t.colorFijoestatico}">
@@ -166,6 +192,33 @@ export async function handleScadaRequest() {
         ];
         const cardStates = Array(${MIS_TARJETAS.length}).fill(true);
         let pipesState = true;
+
+        // --- LÓGICA DE ALARMAS ---
+        let alarmasActivas = [
+          { id: 101, cod: "T1-LVL-HIGH", msg: "Tanque 1: Nivel Crítico (Sobrellenado)", nivel: "critical", hora: "10:45:12" },
+          { id: 102, cod: "P1-TEMP-WRN", msg: "Bomba Principal: Sobrecalentamiento detectado", nivel: "warning", hora: "11:02:30" }
+        ];
+
+        function renderAlarms() {
+          const container = document.getElementById('alarms-list');
+          if (alarmasActivas.length === 0) {
+            container.innerHTML = '<div style="text-align:center; color:#64748b; font-size:0.75rem; font-style:italic; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">✅ No hay alarmas activas en el sistema</div>';
+            return;
+          }
+          container.innerHTML = alarmasActivas.map(a => \`
+            <div class="alarm-card \${a.nivel}">
+              <div>
+                <span style="opacity:0.7; font-family:monospace;">[\${a.cod}]</span> \${a.msg}
+                <br><small style="font-weight:400; opacity:0.8;">Sello de tiempo: \${a.hora}</small>
+              </div>
+              <button class="btn-ack" onclick="ackAlarm(\${a.id})">ACEPTAR (ACK)</button>
+            </div>\`).join('');
+        }
+
+        function ackAlarm(id) {
+          alarmasActivas = alarmasActivas.filter(a => a.id !== id);
+          renderAlarms();
+        }
 
         function toggleCard(idx) {
           cardStates[idx] = !cardStates[idx];
@@ -225,7 +278,7 @@ export async function handleScadaRequest() {
         }
 
         window.onload = () => {
-          updateSystemLevel(); updatePipesColor();
+          renderAlarms(); updateSystemLevel(); updatePipesColor();
           for(let i=0; i<cardStates.length; i++) updateCardColor(i);
         };
       </script>
