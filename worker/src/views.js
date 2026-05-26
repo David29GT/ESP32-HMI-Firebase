@@ -100,6 +100,36 @@ export const renderDashboard = (config) => `
         .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; }
         h2 { color: #1a237e; margin: 0; font-size: 1rem; }
         canvas { width: 100% !important; max-height: 280px; }
+
+        /* --- SIMULATION PANEL (DARK INDUSTRIAL) --- */
+        .sim-panel {
+            background: #1e293b;
+            color: #38bdf8;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 11px;
+            border: 1px solid #334155;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .sim-panel label { font-weight: 800; letter-spacing: 0.5px; color: #94a3b8; }
+        .sim-panel input[type=range] {
+            flex: 1;
+            cursor: pointer;
+            accent-color: #38bdf8;
+        }
+        .sim-value-display {
+            font-family: 'Consolas', monospace;
+            background: #0f172a;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #334155;
+            min-width: 50px;
+            text-align: right;
+        }
     </style>
 </head>
 <body>
@@ -122,6 +152,15 @@ export const renderDashboard = (config) => `
             <div class="panel">
                 <h2>Monitoreo de Tanque ${id}</h2>
                 <div id="status-msg-${id}" class="info-msg">⏱️ Modo: Tiempo Real activado</div>
+                
+                <!-- PANEL DE SIMULACIÓN LOCAL -->
+                <div class="sim-panel">
+                    <label>SIMULADOR T${id}:</label>
+                    <input type="range" id="slider-tanque${id}" min="0" max="100" step="0.1" value="25" 
+                           oninput="manualSim(${id}, this.value)">
+                    <span class="sim-value-display" id="val-sim-${id}">25.0%</span>
+                </div>
+
                 <div class="btn-group">
                     <button onclick="activarRT(this)" class="active" style="background:#4caf50">VIVO</button>
                     <button onclick="cargarHistorial('1M', this)">1M</button>
@@ -188,21 +227,42 @@ export const renderDashboard = (config) => `
         function setupFirebase(id) {
             const dbRef = firebase.database().ref("monitoreo/sensor" + id);
             dbRef.on('value', (snapshot) => {
-                const val = snapshot.val() || 0; // Obtener el valor del sensor
-                document.getElementById('txt-actual-' + id).innerText = parseFloat(val).toFixed(1) + '%'; // Actualizar solo el porcentaje
+                const val = snapshot.val() || 0; 
+                const valorLimpio = parseFloat(val).toFixed(1);
 
+                // 1. Actualizar indicadores de texto (Badge y Simulación)
+                const txtActual = document.getElementById('txt-actual-' + id);
+                if (txtActual) txtActual.innerText = valorLimpio + '%';
+
+                const simValDisplay = document.getElementById('val-sim-' + id);
+                const simSlider = document.getElementById('slider-tanque' + id);
+                
+                if (simValDisplay) simValDisplay.innerText = valorLimpio + '%';
+                if (simSlider) simSlider.value = val;
+
+                // 2. Empujar datos a la gráfica correspondiente si estamos en VIVO
                 if (isRTMode) {
                     const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
                     const chart = tankCharts[id];
-                    if (chart.data.labels.length > 20) { 
-                        chart.data.labels.shift(); 
-                        chart.data.datasets[0].data.shift(); 
+                    
+                    if (chart) {
+                        if (chart.data.labels.length > 20) { 
+                            chart.data.labels.shift(); 
+                            chart.data.datasets[0].data.shift(); 
+                        }
+                        chart.data.labels.push(now);
+                        chart.data.datasets[0].data.push(val);
+                        chart.update('none'); 
                     }
-                    chart.data.labels.push(now);
-                    chart.data.datasets[0].data.push(val);
-                    chart.update('none'); // Update sin animación para RT
                 }
             });
+        }
+
+        // --- SIMULACIÓN ACTIVA: ESCRIBE EN FIREBASE ---
+        function manualSim(id, nuevoValor) {
+            const val = parseFloat(nuevoValor);
+            document.getElementById('val-sim-' + id).innerText = val.toFixed(1) + '%';
+            firebase.database().ref("monitoreo/sensor" + id).set(val);
         }
 
         // --- LÓGICA DE HISTORIAL (API CLOUDFLARE + GITHUB) ---
@@ -219,8 +279,16 @@ export const renderDashboard = (config) => `
             });
 
             try {
-                // CORRECCIÓN: Agregar la URL completa y absoluta de tu Cloudflare Worker
-                const response = await fetch('https://esp32-hmi-monitor.samsepiol-cs30.workers.dev/api/telemetria?rango=' + rango);
+                // Estrategia de URL Híbrida:
+                // Si es local (127.0.0.1 o localhost) usamos URL absoluta.
+                // Si es producción, usamos ruta relativa para evitar peticiones cruzadas (CORS).
+                const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+                const apiBase = isLocal ? 'https://esp32-hmi-monitor.samsepiol-cs30.workers.dev' : '';
+                
+                const response = await fetch(apiBase + '/api/telemetria?rango=' + rango);
+                
+                console.log("Consultando rango:", rango);
+                
                 if (!response.ok) throw new Error("Error en la respuesta del Worker");
                 
                 const data = await response.json();
@@ -263,9 +331,13 @@ export const renderDashboard = (config) => `
 
             [1, 2, 3].forEach(id => {
                 const chart = tankCharts[id];
-                chart.data.labels = [];
-                chart.data.datasets[0].data = [];
-                chart.update();
+                if (chart) {
+                    // Solo limpiar si realmente queremos reiniciar la vista, 
+                    // pero mantenemos la estructura para que los nuevos datos entren
+                    chart.data.labels = [];
+                    chart.data.datasets[0].data = [];
+                    chart.update();
+                }
                 document.getElementById('status-msg-' + id).innerText = "⏱️ Modo: Tiempo Real activado";
             });
         }
