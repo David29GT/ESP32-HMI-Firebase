@@ -1,12 +1,5 @@
 [
   {
-    "timestamp": "2026-05-23 14:17:56",
-    "bomba_estado": 0.0,
-    "tanque1_nivel": 100.0,
-    "tanque2_nivel": 100.0,
-    "tanque3_nivel": 100.0
-  },
-  {
     "timestamp": "2026-05-23 15:34:25",
     "bomba_estado": 0.0,
     "tanque1_nivel": 100.0,
@@ -1744,6 +1737,13 @@
   },
   {
     "timestamp": "2026-06-17 12:40:24",
+    "bomba_estado": 0.0,
+    "tanque1_nivel": 100.0,
+    "tanque2_nivel": 100.0,
+    "tanque3_nivel": 100.0
+  },
+  {
+    "timestamp": "2026-06-17 16:27:10",
     "bomba_estado": 0.0,
     "tanque1_nivel": 100.0,
     "tanque2_nivel": 100.0,
