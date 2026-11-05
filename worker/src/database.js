@@ -3,29 +3,39 @@
  * Aquí centralizamos todas las consultas a Cloudflare D1.
  */
 
-export async function consultarHistorial(env, limit, target) {
-    let query, params;
-
-    if (target) {
-        // Búsqueda forense: 10 minutos alrededor del punto clickeado
-        query = `SELECT * FROM historial 
-                 WHERE fecha BETWEEN DATETIME(?, '-5 minutes') AND DATETIME(?, '+5 minutes') 
-                 ORDER BY fecha ASC LIMIT 20`;
-        params = [target, target];
-    } else {
-        // Vista normal: Últimos registros según el límite
-        query = `SELECT * FROM historial ORDER BY id DESC LIMIT ?`;
-        params = [limit];
-    }
-
-    const { results } = await env.DB.prepare(query).bind(...params).all();
-    return results;
+export async function guardarLoteTelemetria(env, batch) {
+    return await env.DB.prepare(
+        "INSERT INTO telemetria (datos_json, timestamp) VALUES (?, DATETIME('now'))"
+    )
+    .bind(JSON.stringify(batch))
+    .run();
 }
 
-export async function guardarRegistro(env, data) {
+export async function registrarAlerta(env, tipo, detalle) {
     return await env.DB.prepare(
-        "INSERT INTO historial (promedio, maximo, minimo, lecturas, fecha) VALUES (?, ?, ?, ?, DATETIME('now'))"
+        "INSERT INTO alertas (tipo, detalle, timestamp) VALUES (?, ?, DATETIME('now'))"
     )
-    .bind(data.avg, data.max, data.min, JSON.stringify(data.lecturas))
+    .bind(tipo, detalle)
     .run();
+}
+
+export async function obtenerUltimaMedicion(env) {
+    // Buscamos el registro más reciente para comparar el Delta
+    const { results } = await env.DB.prepare(
+        "SELECT datos_json FROM telemetria ORDER BY id DESC LIMIT 1"
+    ).all();
+    
+    if (results.length === 0) return null;
+    const batch = JSON.parse(results[0].datos_json);
+    return batch[batch.length - 1]; // Retornamos la última del lote previo
+}
+
+export async function consultarRangoD1(env, start, end) {
+    const query = `
+        SELECT * FROM telemetria 
+        WHERE timestamp BETWEEN ? AND ? 
+        ORDER BY timestamp ASC
+    `;
+    const { results } = await env.DB.prepare(query).bind(start, end).all();
+    return results;
 }

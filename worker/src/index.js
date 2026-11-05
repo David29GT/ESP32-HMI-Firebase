@@ -3,13 +3,11 @@
  * Une los módulos de Datos, Vistas y Configuración PWA.
  */
 
-import { consultarHistorial, guardarRegistro } from './database.js';
-import { renderDashboard } from './views.js';
+import { guardarLoteTelemetria, registrarAlerta, obtenerUltimaMedicion, consultarRangoD1 } from './database.js';
+import { renderDashboard } from './telemetria.js';
 import { renderManifest } from './manifest.js'; // Importamos el nuevo bloque
 import { handleScadaRequest } from './scada.js';
-
-// URL del JSON generado por GitHub Actions
-const GITHUB_RAW_URL = "https://raw.githubusercontent.com/David29GT/ESP32-HMI-Firebase/main/backend/datos_grafica.json";
+import { renderScadaSvg } from './scada_svg.js';
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -18,133 +16,115 @@ const CORS_HEADERS = {
   "Content-Type": "application/json"
 };
 
+// --- CONFIGURACIÓN DE LÓGICA DE NEGOCIO ---
+const SETPOINTS = {
+  TANK_MIN: 10,
+  TANK_MAX: 95,
+  TEMP_MAX: 55
+};
+
 export default {
   async fetch(request, env) {
-    // --- MANEJO DE CORS (PREFLIGHT) ---
-    // Las peticiones OPTIONS son enviadas por el navegador para verificar permisos
-    if (request.method === "OPTIONS") {
-      return new Response(null, { 
-        headers: CORS_HEADERS 
-      });
-    }
+    try {
+      if (request.method === "OPTIONS") {
+        return new Response(null, { headers: CORS_HEADERS });
+      }
 
-    const url = new URL(request.url);
+      const url = new URL(request.url);
 
-    // --- RUTA A: MANIFIESTO (Identidad de la App) ---
+      // --- ENDPOINT: POST /api/data ---
+      if (request.method === "POST" && url.pathname === "/api/data") {
+        let batch = [];
+        const isSim = url.searchParams.get("mode") === "sim";
+
+        if (isSim) {
+            const now = Date.now();
+            for (let i = 0; i < 4; i++) {
+              batch.push({
+                ts: new Date(now - (3 - i) * 4000).toISOString(),
+                t1: 50 + Math.random() * 5, t2: 40 + Math.random() * 5, t3: 30 + Math.random() * 5, temp: 25 + Math.random() * 2
+              });
+            }
+        } else {
+          batch = await request.json();
+        }
+
+        if (!Array.isArray(batch) || batch.length === 0) throw new Error("Batch inválido");
+        const latest = batch[batch.length - 1];
+
+        // 1. Setpoints
+        const errorMsg = latest.t1 < SETPOINTS.TANK_MIN || latest.t1 > SETPOINTS.TANK_MAX ? `T1 fuera de rango` : 
+                         latest.temp > SETPOINTS.TEMP_MAX ? `Temp crítica` : null;
+        if (errorMsg) await registrarAlerta(env, "OUT_OF_RANGE", errorMsg);
+
+        // 2. Lógica Delta
+        const previous = await obtenerUltimaMedicion(env);
+        if (previous) {
+          for (const tank of ['t1', 't2', 't3']) {
+            const delta = previous[tank] - latest[tank];
+            if (delta > 10) await registrarAlerta(env, "SUDDEN_DROP", `Caída brusca en ${tank.toUpperCase()}`);
+          }
+        }
+
+        await guardarLoteTelemetria(env, batch);
+
+        if (env.FIREBASE_URL) {
+          fetch(`${env.FIREBASE_URL}/system_live/latest_data.json`, {
+            method: 'PUT', body: JSON.stringify({ ...latest, server_ts: ".sv" })
+          });
+        }
+
+        return new Response(JSON.stringify({ status: "success" }), { headers: CORS_HEADERS });
+      }
+
+      // --- ENDPOINT: GET /api/data ---
+      if (request.method === "GET" && url.pathname === "/api/data") {
+        const start = url.searchParams.get("start");
+        const end = url.searchParams.get("end");
+        if (!start || !end) return new Response(JSON.stringify({error: "Faltan parámetros"}), { status: 400, headers: CORS_HEADERS });
+
+        const results = await consultarRangoD1(env, start, end);
+        return new Response(JSON.stringify(results), { headers: CORS_HEADERS });
+      }
+
+      // --- RUTA: DASHBOARD ---
+      if (url.pathname === "/dashboard") {
+        return new Response(renderDashboard({ FIREBASE_URL: env.FIREBASE_URL }), { 
+          headers: { "Content-Type": "text/html" } 
+        });
+      }
+
+      // --- RUTA: DIAGRAMA DE PROCESO ---
+      if (url.pathname === "/proceso") {
+        return new Response(await renderScadaSvg({ FIREBASE_URL: env.FIREBASE_URL }), {
+          headers: { "Content-Type": "text/html; charset=utf-8" }
+        });
+      }
+
+      // --- RUTA: SCADA ---
+      if (url.pathname === "/" || url.pathname === "/scada" || url.pathname === "/tarjetas") {
+        return await handleScadaRequest();
+      }
+
+      // --- MANIFIESTO Y SW ---
     if (url.pathname === "/manifest.json") {
       return new Response(JSON.stringify(renderManifest()), {
-        headers: { 
-          "Content-Type": "application/manifest+json",
-          "Access-Control-Allow-Origin": "*" 
-        }
+        headers: { "Content-Type": "application/manifest+json", "Access-Control-Allow-Origin": "*" }
       });
     }
-
-    // --- RUTA B: SERVICE WORKER (Requisito de instalación) ---
     if (url.pathname === "/sw.js") {
       return new Response("self.addEventListener('fetch', () => {});", {
         headers: { "Content-Type": "application/javascript" }
       });
     }
 
-    // --- NUEVA RUTA: API DE TELEMETRÍA (Datos procesados desde GitHub) ---
-    if (request.method === "GET" && url.pathname === "/api/telemetria") {
-      try {
-        const rango = url.searchParams.get("rango"); // 1M, 5M, 1H, 1D, VIVO
-        
-        // 1. Obtener datos desde el repositorio de GitHub
-        const response = await fetch(GITHUB_RAW_URL, {
-          headers: { "Cache-Control": "no-cache" }
-        });
+    return new Response(JSON.stringify({error: "Not Found"}), { status: 404, headers: CORS_HEADERS });
 
-        if (!response.ok) throw new Error("No se pudo obtener el archivo desde GitHub");
-
-        let telemetria = await response.json();
-
-        // 2. Lógica de Filtrado por Tiempo
-        if (rango && rango !== "VIVO") {
-          const ahora = new Date();
-          let msAtras = 0;
-
-          if (rango === "1M") msAtras = 1 * 60 * 1000;
-          else if (rango === "5M") msAtras = 5 * 60 * 1000;
-          else if (rango === "1H") msAtras = 60 * 60 * 1000;
-          else if (rango === "1D") msAtras = 24 * 60 * 60 * 1000;
-
-          if (msAtras > 0) {
-            const limite = ahora.getTime() - msAtras;
-            telemetria = telemetria.filter(item => {
-              // Convertimos "YYYY-MM-DD HH:MM:SS" a formato ISO para JS
-              const itemTime = new Date(item.timestamp.replace(' ', 'T')).getTime();
-              return itemTime >= limite;
-            });
-          }
-        }
-
-        return new Response(JSON.stringify(telemetria), { headers: CORS_HEADERS });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: CORS_HEADERS });
-      }
-    }
-
-    // --- RUTA 1: RECIBIR DATOS DEL ESP32 ---
-    if (request.method === "POST" && url.pathname === "/update") {
-      try {
-        // Validación simple de API Key para seguridad
-        const apiKey = request.headers.get("X-API-Key");
-        if (env.API_KEY && apiKey !== env.API_KEY) {
-          return new Response("No autorizado", { status: 401 });
-        }
-
-        const data = await request.json();
-        
-        // Validar que el objeto tenga los datos necesarios
-        if (data.type === "history" && data.avg !== undefined) {
-          await guardarRegistro(env, data);
-          return new Response("Historial guardado", { status: 201 });
-        }
-        return new Response("OK", { status: 200 });
-      } catch (err) {
-        return new Response("Error: " + err.message, { status: 400 });
-      }
-    }
-
-    // --- RUTA 2: OBTENER DATOS PARA LAS GRÁFICAS ---
-    if (request.method === "GET" && url.pathname === "/get-history") {
-      const limit = url.searchParams.get("limit") || 10;
-      const target = url.searchParams.get("target"); 
-
-      try {
-        const results = await consultarHistorial(env, limit, target);
-        return new Response(JSON.stringify(results), {
-          headers: { 
-            "Content-Type": "application/json", 
-            "Access-Control-Allow-Origin": "*" 
-          }
-        });
-      } catch (err) {
-        return new Response("Error DB: " + err.message, { status: 500 });
-      }
-    }
-
-    // --- RUTA SCADA HMI (POR DEFECTO Y /scada) ---
-    if (url.pathname === "/" || url.pathname === "/scada") {
-      return await handleScadaRequest();
-    }
-
-    // --- RUTA PANEL DE CONTROL (ANTIGUA PÁGINA) ---
-    // Ahora accesible explícitamente a través de /dashboard
-    if (url.pathname === "/dashboard") {
-    // Solo pasamos la URL de Firebase para evitar exponer la API_KEY u otros secretos
-      const config = {
-        FIREBASE_URL: env.FIREBASE_URL
-      };
-      return new Response(renderDashboard(config), { 
-        headers: { "Content-Type": "text/html" } 
+    } catch (err) {
+      return new Response(JSON.stringify({ error: err.message }), { 
+        status: 500, 
+        headers: CORS_HEADERS 
       });
     }
-
-    // Fallback para cualquier otra ruta no encontrada
-    return new Response("Página no encontrada", { status: 404 });
   }
 };

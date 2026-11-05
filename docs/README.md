@@ -1,80 +1,135 @@
-# ESP32 HMI Real-Time Monitor
+# ESP32 HMI Real-Time Monitor (SCADA Web)
 
-Sistema de monitoreo industrial SCADA para el control de 3 tanques de agua independientes, utilizando una arquitectura híbrida de baja latencia y persistencia histórica automatizada.
+Sistema SCADA para monitoreo de 3 tanques de agua y una bomba, con adquisición de datos desde un ESP32, almacenamiento en Firebase Realtime Database, procesamiento histórico automatizado y visualización en una interfaz HMI desplegada en Cloudflare Workers.
 
-## 🛰️ Arquitectura del Sistema y Flujo de Datos
+## ¿Qué está implementado actualmente?
 
-El proyecto opera bajo dos flujos de datos paralelos para garantizar tanto la inmediatez como el análisis histórico:
+El proyecto ya incluye la implementación de varias capas funcionales:
 
-### 1. Flujo de Tiempo Real (Latencia < 1s)
-*   **Origen:** El **ESP32** captura los niveles de los tanques y el estado de la bomba.
-*   **Transporte:** Envía los datos directamente a **Firebase Realtime Database**.
-*   **Visualización:** El Dashboard (JS) mantiene una conexión abierta mediante WebSockets con Firebase, actualizando las gráficas instantáneamente al recibir un cambio.
+### 1. Firmware del ESP32
+- Conexión WiFi y configuración de la base de datos Firebase.
+- Lógica para capturar lecturas y variables del sistema.
+- Envío de telemetría al nodo principal de Firebase.
+- Arquitectura modular dividida en:
+  - `firmware/firmware.ino`: lógica principal del loop de operación.
+  - `firmware/network.ino`: conexión WiFi/configuración de red.
+  - `firmware/sensors.ino`: lectura y preparación de datos del sistema.
 
-### 2. Flujo Histórico y Procesamiento (ETL)
-*   **Automatización:** Cada 5 minutos, **GitHub Actions** dispara un flujo de trabajo.
-*   **Procesamiento (Python):** El script `backend/main.py` extrae los datos de Firebase, los limpia y los almacena en una base de datos **SQLite** (`historico_scada.db`).
-*   **Optimización:** Se genera un archivo `datos_grafica.json` con los últimos 1000 registros procesados mediante Pandas (pivoteo de tablas y manejo de nulos).
-*   **Persistencia:** GitHub Actions hace un commit automático de la DB y el JSON de vuelta al repositorio.
+### 2. Integración con Firebase
+- El ESP32 envía los datos al nodo `system_live/esp32_scada_main` en Firebase Realtime Database.
+- Las variables principales que se manejan son:
+  - `t1` (Nivel Tanque 1)
+  - `t2` (Nivel Tanque 2)
+  - `t3` (Nivel Tanque 3)
+  - `temp` (Temperatura)
+  - `pumpRunning` (Estado de la bomba)
+- **Comandos (NUEVO):** El ESP32 escucha el nodo `system_live/comandos` para recibir órdenes desde la web (ej. encender bomba, activar E-STOP).
 
-### 3. Capa de API (Edge Computing)
-*   **Cloudflare Worker:** Actúa como middleware. Cuando el usuario solicita un rango (1H, 1D, etc.), el Worker consume el JSON crudo de GitHub, aplica filtros de tiempo dinámicos y entrega una respuesta optimizada con cabeceras CORS.
+### 3. HMI / SCADA Unificado en Cloudflare Worker
+Se ha rediseñado la interfaz para tener un enrutamiento unificado con un menú de navegación superior, dividiendo la aplicación en 4 vistas principales:
 
-##  Estructura del Proyecto
+- **`/` o `/scada` (Vista de Proceso):** Diagrama P&ID animado (SVG desde Cloudinary) que refleja el estado real. El agua de los tanques sube/baja y la bomba cambia de color según los datos de Firebase. Incluye panel de control lateral (sliders).
+- **`/tarjetas` (Vista de Instrumentación):** Tarjetas individuales para cada equipo (Tanque 1, Tanque 2, Bomba, etc.) con indicadores visuales de color y estado.
+- **`/telemetria` (Vista de Gráficas):** Dashboard con Chart.js para ver datos en tiempo real (vía Firebase) e históricos (vía consultas a D1).
+- **`/alarmas` (Vista de Alarmas):** Sistema visual de alertas críticas y advertencias, con botón de "ACK" (Aceptar) para silenciar.
+
+### 4. ETL y almacenamiento histórico
+- El script `backend/main.py` (o el Cron de Cloudflare) extrae datos de Firebase.
+- Se guardan en SQLite (D1) con la tabla `telemetria` (columnas: `timestamp`, `variable`, `valor`).
+- Se exporta un JSON optimizado para las gráficas.
+
+## 🏗️ Arquitectura Funcional del Sistema
 
 ```text
-├── .github/workflows/    # Automatización (GitHub Actions)
-├── backend/
-│   ├── main.py           # Script ETL (Firebase -> SQLite -> JSON)
-│   ├── historico_scada.db # Base de datos relacional persistente
-│   └── datos_grafica.json # Cache optimizado para el Frontend
-├── firmware/             # Código C++ para ESP32 (Arduino IDE/PlatformIO)
-├── worker/
-│   ├── src/
-│   │   ├── index.js      # API de Telemetría (Cloudflare Workers)
-│   │   ├── views.js      # Frontend HMI (Dashboard con Chart.js)
-│   │   └── scada.js      # Lógica de renderizado del HMI
-└── docs/                 # Documentación del proyecto
+                   +-----------------------------------+
+                   |           NAVEGADOR WEB           |
+                   |  (SCADA SVG / Tarjetas / Gráficas)|
+                   +-----------------+-----------------+
+                                     |
+                   [WebSockets / HTTP fetch] (Cloudflare Worker)
+                                     |
+                                     v
++------------------+      +--------------------+      +------------------+
+|   ESP32 (Edge)   |<---->| Firebase RTDB (DB) |<---->| Cloudflare D1    |
+| - Lee sensores   |      | - system_live      |      | (Históricos)     |
+| - Activa relés   |      | - comandos         |      +------------------+
++------------------+      +--------------------+
 ```
 
-## 🛠️ Tecnologías
-*   **Hardware:** ESP32 (WiFi Stack).
-*   **Backend:** Python 3.13, Pandas, SQLite3.
-*   **Cloud:** Firebase (RTDB), Cloudflare Workers (Edge Runtime).
-*   **DevOps:** GitHub Actions (CI/CD + Cron Jobs).
-*   **Frontend:** JavaScript (ES6+), Chart.js, HTML5/CSS3 Industrial UI.
+## Estructura del proyecto actualizada
 
-## ⚙️ Configuración de Variables de Entorno
+```text
+├── .github/
+│   └── workflows/
+│       └── scada_update.yml       # Automatización periódica (ETL)
+├── assets/                        # SVGs locales si no usas Cloudinary
+├── backend/
+│   ├── main.py                    # ETL: Firebase -> SQLite -> JSON
+│   ├── historico_scada.db         # Base histórica SQLite
+│   └── datos_grafica.json         # Datos optimizados para la UI
+├── docs/
+│   └── README.md                  # Documentación del proyecto
+├── firmware/
+│   ├── firmware.ino               # Lógica principal del ESP32 (Firebase streams)
+│   ├── network.ino                # Manejo de red/WiFi
+│   └── sensors.ino                # Lecturas y tratamiento de sensores
+├── worker/
+│   ├── wrangler.toml              # Configuración de Cloudflare Workers/D1
+│   └── src/
+│       ├── index.js               # Router principal (Unifica las 4 vistas)
+│       ├── database.js            # Acceso a D1
+│       ├── layout.js              # (Nuevo) Menú de navegación común
+│       ├── scada_svg.js           # Lógica del P&ID (SVG animado)
+│       ├── tarjetas.js            # Vista de instrumentación (Cards)
+│       ├── telemetria.js          # Vista de gráficas (Chart.js)
+│       ├── alarmas.js             # Vista de alarmas (Pendiente pulir)
+│       └── manifest.js            # Configuración de manifiesto PWA
+└── README.md
+```
 
-Para el correcto funcionamiento del backend automatizado, se deben configurar los siguientes **Secrets** en GitHub:
+## Tecnologías utilizadas
+- **Hardware:** ESP32 (C++)
+- **Conectividad:** WiFi + Firebase Realtime Database (Streaming de datos)
+- **Procesamiento histórico:** Python 3 / Node.js (Cloudflare Cron), SQLite3 / D1
+- **API/Edge:** Cloudflare Workers
+- **Frontend:** JavaScript ES6+, HTML, CSS, SVG (Chart.js para telemetría)
+- **CDN Multimedia:** Cloudinary (alojamiento de los SVGs del P&ID)
 
-1.  `FIREBASE_CREDENTIALS`: Contenido completo del archivo `serviceAccountKey.json`.
+## 🔌 Flujo de Datos y Control (Paso a Paso)
 
-En el Cloudflare Worker, configurar las siguientes variables:
+Para que el sistema funcione de forma real, el flujo es el siguiente:
 
-1.  `FIREBASE_URL`: URL de tu base de datos en Firebase.
-2.  `API_KEY`: Clave de seguridad para las peticiones POST desde el ESP32.
+1. **Lectura (ESP32 -> Firebase):** El ESP32 lee los sensores y actualiza el nodo `system_live/esp32_scada_main` cada X segundos.
+2. **Visualización (Firebase -> Web):** El Worker de Cloudflare sirve la página web. El navegador se conecta a Firebase y escucha los cambios. Cuando el ESP32 actualiza un nivel, el SVG de la web se anima automáticamente.
+3. **Control (Web -> Firebase -> ESP32):** 
+   - El usuario pulsa "Encender Bomba" en la web.
+   - La web escribe `true` en `system_live/comandos/pump`.
+   - El ESP32 tiene un *listener* en ese nodo. Al detectar el cambio, activa el relé.
+   - El ESP32 actualiza `pumpRunning: true` en el nodo principal para confirmar que se ha encendido.
 
-## 🔧 Instalación Local
+## 🛡️ Seguridad y Roles (RBAC)
 
-1.  Clona el repositorio.
-2.  Crea un entorno virtual de Python:
-    ```bash
-    python -m venv .venv
-    source .venv/bin/activate  # o .venv\Scripts\activate en Windows
-    ```
-3.  Instala las dependencias:
-    ```bash
-    pip install -r backend/requirements.txt
-    ```
-4.  Para ejecutar el procesador manualmente:
-    ```bash
-    python backend/main.py
-    ```
+La HMI incluye una maqueta de roles (Operador, Supervisor, Administrador). Para que sea seguro en producción:
+- Se debe implementar **Cloudflare Access** para autenticar usuarios reales (Google/Email) antes de entrar a la web.
+- El Worker validará el JWT (Token) del usuario y rechazará las peticiones de escritura (ej. accionar bombas) si el rol no es el adecuado.
+- Los accesos a Firebase desde la web deben estar restringidos por reglas (`Firebase Rules`) para evitar que usuarios no autenticados lean o escriban datos.
 
-## � Estado del Proyecto
-- [x] Conexión WiFi y Firebase.
-- [x] Envío de datos de 3 tanques y bomba.
-- [x] Despliegue de HMI en la nube.
-- [x] Automatización de histórico mediante GitHub Actions.
-- [ ] Implementación de alertas por correo (En desarrollo).
+## Estado actual del proyecto
+
+### Implementado
+- [x] Conexión WiFi del ESP32
+- [x] Envío de datos a Firebase
+- [x] Lectura y normalización de telemetría desde Firebase
+- [x] HMI/SCADA con representación visual de tanques y bomba (SVG desde Cloudinary)
+- [x] Generación de JSON optimizado para gráficos
+- [x] Dashboard de telemetría con Chart.js
+- [x] Automatización periódica con GitHub Actions
+- [x] API de acceso por Cloudflare Workers
+
+### Pendiente / En Desarrollo (Roadmap)
+- [ ] **Refactorización del Router:** Unificar las vistas de SCADA, Tarjetas y Telemetría en un solo archivo `index.js` con un layout común.
+- [ ] **Conexión SVG-Firebase:** Modificar `Worker_ProcesoCasaV5` para que las animaciones del agua respondan a los datos reales de Firebase en lugar de sliders locales.
+- [ ] **Control de Actuadores:** Implementar la lógica en la web para escribir comandos en Firebase y en el ESP32 para leerlos y accionar los relés.
+- [ ] **Vista de Alarmas:** Conectar el sistema de alertas (críticas y advertencias) a Firebase.
+- [ ] **Seguridad:** Añadir autenticación con Cloudflare Access y reglas de Firebase.
+- [ ] **Alertas por correo/Telegram:** Usar un Cron Trigger en Cloudflare para notificar si hay un fallo crítico.

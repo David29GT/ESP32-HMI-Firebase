@@ -3,6 +3,8 @@
  * Procesa SVGs dinámicos y genera la interfaz de control avanzada.
  */
 
+import { renderLayout } from './layout.js';
+
 export async function handleScadaRequest() {
     const MIS_TARJETAS = [
       {
@@ -91,10 +93,6 @@ export async function handleScadaRequest() {
     const svgPipes = allSVGs.slice(MIS_TARJETAS.length);
 
     const html = `
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-      <meta charset="UTF-8">
       <style>
         body { background: #f1f5f9; color: #1e293b; font-family: 'Segoe UI', sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; margin: 0; }
         .dashboard { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; width: 100%; max-width: 900px; }
@@ -154,7 +152,7 @@ export async function handleScadaRequest() {
         .estop-badge.active { background: #fee2e2; color: #ef4444; border: 1px solid #ef4444; animation: blink-critical 1s infinite; }
 
         /* --- PERFIL DE USUARIO --- */
-        .user-profile-card { position: fixed; top: 15px; right: 15px; background: white; padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 10px; z-index: 1000; }
+        .user-profile-card { position: fixed; top: 70px; right: 15px; background: white; padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 10px; z-index: 1000; }
         .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: #1e293b; color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.7rem; }
         .user-info { display: flex; flex-direction: column; }
         .user-name { font-size: 0.75rem; font-weight: 800; color: #1e293b; line-height: 1; }
@@ -195,30 +193,7 @@ export async function handleScadaRequest() {
         .oee-val { display: block; font-size: 1.1rem; font-weight: 800; color: #be185d; }
         .oee-label { font-size: 0.55rem; text-transform: uppercase; color: #db2777; letter-spacing: 0.5px; font-weight: bold; }
 
-        .nav-bar {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            width: 100%;
-            max-width: 900px;
-        }
-        .nav-bar a {
-            text-decoration: none;
-            color: #1e293b;
-            font-weight: bold;
-            padding: 8px 16px;
-            background: #e2e8f0;
-            border-radius: 20px;
-            font-size: 14px;
-        }
-        .nav-bar a.active { background: #1e293b; color: white; }
       </style>
-    </head>
-    <body>
-      <div class="nav-bar">
-        <a href="/" class="active">🏭 SCADA HMI</a>
-        <a href="/dashboard">📊 Telemetría</a>
-      </div>
       <div class="user-profile-card">
         <div class="user-avatar" id="user-avatar-initials">S1</div>
         <div class="user-info">
@@ -565,8 +540,6 @@ export async function handleScadaRequest() {
           setInterval(() => { updateTelemetry(); updateOEEAndFlow(); }, 2000);
           for(let i=0; i<cardStates.length; i++) if(!MIS_TARJETAS[i].vacio) updateCardColor(i);
         };
-      </script>
-    </body>
-    </html>`;
-    return new Response(html, { headers: { "Content-Type": "text/html;charset=UTF-8" } });
+      </script>`;
+    return new Response(renderLayout(html, "tarjetas"), { headers: { "Content-Type": "text/html;charset=UTF-8" } });
 }
