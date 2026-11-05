@@ -75,7 +75,8 @@ El Worker entrega el frontend y proporciona endpoints para almacenar y consultar
 │   ├── firmware.ino               # Bucle principal
 │   ├── network.ino                # Conectividad de red
 │   ├── sensors.ino                # Lecturas de sensores
-│   └── config.h                   # Configuración del firmware
+│   ├── config.h                   # Pines y parámetros (incluye secretos locales)
+│   └── secrets.example.h          # Plantilla de credenciales, sin secretos reales
 └── worker/
     ├── wrangler.toml              # Configuración de Cloudflare Workers y D1
     └── src/
@@ -122,3 +123,67 @@ Los módulos del firmware están presentes en `firmware/`: `firmware.ino` contie
 
 - [ ] **Hardware (ESP32):** integración y validación física del firmware con sensores, actuadores y Firebase.
 - [ ] **Notificaciones (Discord):** integración para enviar avisos de alarmas o fallos.
+
+
+
+
+## 🗺️ Plan de Implementación: Migración de Blynk a Cloudflare + Firebase (Firmware)
+
+El objetivo es migrar toda la lógica de control del ESP32 (actualmente en Blynk) a nuestro ecosistema de Firebase y Cloudflare Worker, manteniendo las protecciones y la máquina de estados industrial.
+
+### 1. Mapeo de Hardware y Pines (ESP32)
+
+El firmware actual utiliza los siguientes pines. Deben mantenerse en el nuevo archivo `config.h`:
+*   **Sensores Ultrasónicos (Nivel):** T1 (Trig 14, Echo 35), T2 (Trig 27, Echo 34), T3 (Trig 25, Echo 39).
+*   **Sensores de Estado (Flotadores/LDR):** BNA (Pin 33 - Nivel Bajo T1), ANA (Pin 17 - Nivel Alto T1), Manual (Pin 18), Falso (Pin 19), LDR (Pin 36).
+*   **Temperatura:** DS18B20 en OneWire (Pin 32).
+*   **Actuadores (Potencia):** Triac Bomba 1 (Pin 12), Triac Bomba 2 (Pin 2), Habilitador Válvula (Pin 13).
+*   **Servos (Válvulas):** Servo 1 (Pin 23), Servo 2 (Pin 22).
+*   **Indicadores:** LED NeoPixel (Pin 15).
+
+### 2. Mapeo de Comunicación (Blynk Virtual Pins -> Firebase Nodes)
+
+Sustituiremos las funciones `Blynk.virtualWrite()` y `BLYNK_WRITE()` por `Firebase.setX()` y `Firebase.stream()`.
+
+| Función Original (Blynk) | Pestaña HMI (Worker) | Nodo en Firebase | Tipo de Dato |
+| :--- | :--- | :--- | :--- |
+| `V11`, `V21`, `V31` (Niveles) | Proceso / Dashboard | `monitoreo/sensor1`, `sensor2`, `sensor3` | Float (0-100) |
+| `V9` (Temperatura) | Proceso / Dashboard | `monitoreo/temp` | Float |
+| `V10` (Estado de Error) | Alarmas | `system_live/alarmas/alerta_X` | Object (Mensaje, Nivel) |
+| `V3` (Terminal de texto) | Log / Consola | `system_live/logs` (Lista) | String / Push |
+| `V4` (Boton Start/Stop) | Dashboard | `monitoreo/bomba` | Boolean |
+| `V5` (Boton Opciones) | Dashboard | `system_live/comandos/opciones` | Boolean / Int |
+| `V54` (Control Válvula) | Dashboard | `system_live/comandos/valvula` | Int (0=Cerrar, 90=Abrir) |
+| *N/A* (Nuevo E-STOP) | Dashboard | `system_live/controles/estop` | Boolean |
+
+### 3. Estructura del Firmware Refactorizado
+
+Se dividirá el código en los siguientes archivos dentro de `firmware/`:
+
+*   **`config.h`**: Definición de pines y parámetros del firmware; incluye `secrets.h`, que contiene las credenciales locales y no se versiona. `secrets.example.h` sirve como plantilla.
+*   **`network.ino`**: Conexión y reconexión WiFi e inicialización del cliente `FirebaseESP32`.
+*   **`sensors.ino`**: Lecturas de `Sensor_1()`, `Sensor_2()`, `Sensor_3()` y DS18B20. La lógica de "Moda" para detección de flujo se abordará con la máquina de estados.
+*   **`actuators.ino`**: Lógica para mover los servos (válvulas) y encender los Triacs (bombas), absorbiendo la lógica de seguridad (no encender si hay E-STOP o bajo nivel).
+*   **`firmware.ino` (Main)**: Contendrá el `setup()` y `loop()`, además de la máquina de estados (`Control_Automatico`, `Programacion_Rapida`, `Programacion_Lenta`).
+
+Para compilar esta fase se requieren las librerías Arduino `Firebase ESP32 Client` (cabecera `FirebaseESP32.h`), `OneWire` y `DallasTemperature`. En una instalación nueva, copia `secrets.example.h` como `secrets.h` y completa allí las credenciales locales; no publiques `secrets.h`.
+
+### 4. Fases de Implementación (Checklist)
+
+- [x] **Fase 1: Esqueleto de Red (implementación)**
+  - Inicializar WiFi y Firebase y reintentar la conexión WiFi si se pierde.
+  - Pendiente de validar en placa; la lectura de comandos de Firebase todavía no está implementada.
+- [x] **Fase 2: Migración de Lecturas (implementación)**
+  - Leer los tres sensores ultrasónicos y el DS18B20 cada 2 segundos.
+  - Publicar los niveles en `monitoreo/sensor1`, `monitoreo/sensor2`, `monitoreo/sensor3` y la temperatura en `monitoreo/temp`.
+  - Pendiente de prueba física con sensores y validación de la vista HMI.
+- [ ] **Fase 3: Control de Actuadores (Escritura)**
+  - Configurar los *listeners* de Firebase en el ESP32 para escuchar `monitoreo/bomba` y las válvulas.
+  - Programar el encendido de los pines (Triacs y Servos).
+  - *Prueba en HMI:* Mover un slider en la web y ver que el relé del ESP32 hace clic.
+- [ ] **Fase 4: Migración de la Máquina de Estados (El Cerebro)**
+  - Trasladar la lógica de `Estado` (0=Listo, 1=Encendido, 2=Espera), la detección de flujo y las protecciones de seguridad.
+  - Sustituir los `Blynk.virtualWrite` de los errores por inserciones en `system_live/alarmas`.
+- [ ] **Fase 5: Sincronización del Modo Automático**
+  - Asegurar que el ESP32 respete el modo AUTOMÁTICO/MANUAL que se selecciona en el Dashboard (leyendo el nodo `system_live/controles/modo`).
+  - Implementar el E-STOP: Si Firebase envía `true` en el E-STOP, el ESP32 debe apagar los Triacs inmediatamente por software.

@@ -284,7 +284,7 @@ export const renderDashboard = (config) => renderLayout(`
 
         function setupFirebase(id) {
             // Mapeo de nodos de Firebase
-            const fbPath = id === 'temp' ? "monitoreo/temperatura" : "monitoreo/sensor" + id;
+            const fbPath = id === 'temp' ? "monitoreo/temp" : "monitoreo/sensor" + id;
             const dbRef = firebase.database().ref(fbPath);
             
             dbRef.on('value', (snapshot) => {
@@ -323,7 +323,7 @@ export const renderDashboard = (config) => renderLayout(`
             const suffix = id === 'temp' ? '°C' : '%';
             document.getElementById('val-sim-' + id).innerText = val.toFixed(1) + suffix;
             // Sincronizamos con Firebase para que el ESP u otros clientes vean el cambio
-            const fbPath = id === 'temp' ? "monitoreo/temperatura" : "monitoreo/sensor" + id;
+            const fbPath = id === 'temp' ? "monitoreo/temp" : "monitoreo/sensor" + id;
             firebase.database().ref(fbPath).set(val).catch(error => {
                 console.error("No se pudo actualizar Firebase en " + fbPath, error);
                 const status = document.getElementById('status-msg-' + id);

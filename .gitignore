@@ -17,8 +17,11 @@ Thumbs.db
 
 # Archivos específicos a ignorar
 firmware/config.h
+firmware/secrets.h
 Guia_Proyecto_ESP32_Firebase.txt
 README2.md
+_blynk_legacy/
+
 
 # Backend de Python y Base de Datos Histórica
 backend/serviceAccountKey.json
