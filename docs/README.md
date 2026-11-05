@@ -1,4 +1,3 @@
-```markdown
 # ESP32 HMI Real-Time Monitor (SCADA Web)
 
 Sistema SCADA para monitoreo de 3 tanques de agua y una bomba, con adquisición de datos desde un ESP32, almacenamiento en Firebase Realtime Database, procesamiento histórico automatizado y visualización en una interfaz HMI desplegada en Cloudflare Workers.
@@ -142,4 +141,3 @@ La interfaz cuenta con un selector de roles que modifica dinámicamente los perm
 - [ ] **Vista de Alarmas:** Conectar el sistema de alertas dinámicas (críticas y advertencias) a Firebase.
 - [ ] **Alertas externas:** Usar un Cron Trigger en Cloudflare para notificar fallos críticos por correo o Telegram.
 - [ ] **Autenticación Avanzada:** Migrar de Basic Auth a Cloudflare Access o Firebase Auth para una seguridad de nivel empresarial.
-```

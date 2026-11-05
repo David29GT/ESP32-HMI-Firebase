@@ -302,6 +302,51 @@ export async function renderScadaSvg(config = {}) {
             transition: transform 0.15s ease-in-out, fill 0.25s ease, opacity 0.25s ease;
             transform-origin: center;
         }
+
+        @media (max-width: 900px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+                height: auto;
+                min-height: 0;
+                padding: 8px;
+                gap: 10px;
+            }
+
+            .tarjeta-hmi {
+                padding: 10px;
+            }
+
+            #tarjeta-visualizacion {
+                order: -1;
+                min-width: 0;
+                min-height: 65vh;
+            }
+
+            #panel-instrumentacion {
+                order: 1;
+                height: auto;
+                max-height: none;
+                overflow: visible;
+            }
+
+            #contenedor-svg {
+                width: 100%;
+                height: auto;
+                flex: 1 1 auto;
+                min-height: 0;
+                min-width: 0;
+                overflow: hidden;
+                padding: 0;
+            }
+
+            #contenedor-svg svg {
+                width: 100%;
+                height: 100%;
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: contain;
+            }
+        }
     </style>
     <div class="dashboard-grid">
         <div id="panel-instrumentacion" class="tarjeta-hmi">
@@ -338,6 +383,23 @@ export async function renderScadaSvg(config = {}) {
         const estadosActuadores = Array(actuadoresData.length).fill(true);
         const dimensionesOriginalesTanques = {};
         const sensorActuators = { 7: "sensor1", 6: "sensor2", 5: "sensor3" };
+        const actuatorStatePaths = {
+            0: "monitoreo/bomba",
+            1: "monitoreo/valvula",
+            2: "system_live/controles/tuberias/base",
+            3: "system_live/controles/tuberias/t2",
+            4: "system_live/controles/tuberias/t3",
+            5: "monitoreo/tanque3Activo",
+            6: "monitoreo/tanque2Activo",
+            7: "monitoreo/tanque1Activo"
+        };
+        const actuatorColorPaths = {
+            0: "system_live/controles/bomba/color",
+            1: "system_live/controles/valvula/color",
+            2: "system_live/controles/tuberias/base_color",
+            3: "system_live/controles/tuberias/t2_color",
+            4: "system_live/controles/tuberias/t3_color"
+        };
         const firebaseConfig = {
             databaseURL: ${JSON.stringify(config.FIREBASE_URL || 'https://esp32-hmi-default-rtdb.firebaseio.com/')}
         };
@@ -357,30 +419,37 @@ export async function renderScadaSvg(config = {}) {
             if (sensorActuators[idx]) {
                 const nivel = (Number(slider.value) / 19) * 100;
                 writeFirebase("monitoreo/" + sensorActuators[idx], Number(nivel.toFixed(1)));
-            } else if (idx === 0) {
-                writeFirebase("monitoreo/bomba", estadosActuadores[0]);
+            } else if (actuatorColorPaths[idx]) {
+                writeFirebase(actuatorColorPaths[idx], Number(slider.value));
             }
         }
 
-        function updatePumpFromFirebase(value) {
+        function parseActuatorState(value) {
             const normalizedValue = String(value).toLowerCase();
-            const isOn = value === true || value === 1 ||
+            return value === true || value === 1 ||
                 normalizedValue === "true" || normalizedValue === "1" ||
                 normalizedValue === "on" || normalizedValue === "encendida";
-            const button = document.getElementById("toggle-0");
-            const container = document.getElementById("container-0");
+        }
 
-            estadosActuadores[0] = isOn;
+        function updateActuatorState(idx, isOn) {
+            estadosActuadores[idx] = isOn;
+            const button = document.getElementById("toggle-" + idx);
+            const container = document.getElementById("container-" + idx);
             button.innerText = isOn ? "ON" : "OFF";
             button.className = "btn-toggle " + (isOn ? "active" : "inactive");
             container.classList.toggle("disabled-ui", !isOn);
-            document.getElementById("slider-0").value = isOn ? "10" : "4";
-            updateElementColor(0);
+            updateElementColor(idx);
+        }
+
+        function updatePumpFromFirebase(value) {
+            const isOn = parseActuatorState(value);
+            updateActuatorState(0, isOn);
         }
 
         function setupFirebaseListeners() {
             ["sensor1", "sensor2", "sensor3"].forEach(sensor => {
                 firebaseDatabase.ref("monitoreo/" + sensor).on("value", snapshot => {
+                    if (snapshot.val() === null) return;
                     const value = Number(snapshot.val());
                     if (!Number.isFinite(value)) return;
 
@@ -392,10 +461,37 @@ export async function renderScadaSvg(config = {}) {
                 }, error => console.error("Error leyendo monitoreo/" + sensor, error));
             });
 
+            new Set(Object.values(actuatorStatePaths)).forEach(path => {
+                if (path === "monitoreo/bomba") return;
+                firebaseDatabase.ref(path).on("value", snapshot => {
+                    if (snapshot.val() === null) return;
+                    const isOn = parseActuatorState(snapshot.val());
+                    const affectedActuators = Object.entries(actuatorStatePaths)
+                        .filter(([, actuatorPath]) => actuatorPath === path)
+                        .map(([idx]) => Number(idx));
+                    affectedActuators.forEach(actuatorIdx => updateActuatorState(actuatorIdx, isOn));
+                }, error => console.error("Error leyendo " + path, error));
+            });
+
             firebaseDatabase.ref("monitoreo/bomba").on("value", snapshot => {
-                const value = snapshot.val();
-                if (value !== null) updatePumpFromFirebase(value);
+                if (snapshot.val() !== null) updatePumpFromFirebase(snapshot.val());
             }, error => console.error("Error leyendo monitoreo/bomba", error));
+
+            new Set(Object.values(actuatorColorPaths)).forEach(path => {
+                firebaseDatabase.ref(path).on("value", snapshot => {
+                    if (snapshot.val() === null) return;
+                    const value = Number(snapshot.val());
+                    if (!Number.isInteger(value) || value < 0 || value > 19) return;
+
+                    const affectedActuators = Object.entries(actuatorColorPaths)
+                        .filter(([, actuatorPath]) => actuatorPath === path)
+                        .map(([idx]) => Number(idx));
+                    affectedActuators.forEach(actuatorIdx => {
+                        document.getElementById("slider-" + actuatorIdx).value = String(value);
+                        updateElementColor(actuatorIdx);
+                    });
+                }, error => console.error("Error leyendo " + path, error));
+            });
         }
 
         // Limpieza explícita del cuadro rojo de fondo de la válvula
@@ -424,7 +520,7 @@ export async function renderScadaSvg(config = {}) {
                 container.classList.add("disabled-ui");
             }
             updateElementColor(idx);
-            if (idx === 0) writeFirebase("monitoreo/bomba", estadosActuadores[idx]);
+            writeFirebase(actuatorStatePaths[idx], estadosActuadores[idx]);
         }
 
         function setSliderTrackStyle(id, colorHex, percentVal) {
@@ -563,7 +659,9 @@ export async function renderScadaSvg(config = {}) {
                     if (!elementoSvg) return;
 
                     if (!estadosActuadores[idx]) {
-                        elementoSvg.style.opacity = "0"; 
+                       elementoSvg.style.opacity = "0.80";
+                       elementoSvg.setAttribute("fill", "#cbd5e1");
+                       elementoSvg.style.fill = "#cbd5e1";
                     } else {
                         elementoSvg.style.opacity = "0.80";
                         // Mantenemos el color fijo o el de la paleta si deseas cambiarlo, sin romper la silueta

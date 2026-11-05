@@ -5,6 +5,7 @@
 
 import { guardarLoteTelemetria, registrarAlerta, obtenerUltimaMedicion, consultarRangoD1 } from './database.js';
 import { renderDashboard } from './telemetria.js';
+import { renderAlarmas } from './alarmas.js';
 import { renderManifest } from './manifest.js'; // Importamos el nuevo bloque
 import { handleScadaRequest } from './scada.js';
 import { renderScadaSvg } from './scada_svg.js';
@@ -28,6 +29,7 @@ const PROTECTED_PAGE_PATHS = new Set([
   "/scada",
   "/tarjetas",
   "/dashboard",
+  "/telemetria",
   "/proceso",
   "/alarmas"
 ]);
@@ -134,9 +136,16 @@ export default {
       }
 
       // --- RUTA: DASHBOARD ---
-      if (url.pathname === "/dashboard") {
+      if (url.pathname === "/dashboard" || url.pathname === "/telemetria") {
         return new Response(renderDashboard({ FIREBASE_URL: env.FIREBASE_URL }), { 
           headers: { "Content-Type": "text/html" } 
+        });
+      }
+
+      // --- RUTA: ALARMAS ---
+      if (url.pathname === "/alarmas") {
+        return new Response(renderAlarmas({ FIREBASE_URL: env.FIREBASE_URL }), {
+          headers: { "Content-Type": "text/html; charset=utf-8" }
         });
       }
 
@@ -149,7 +158,7 @@ export default {
 
       // --- RUTA: SCADA ---
       if (url.pathname === "/" || url.pathname === "/scada" || url.pathname === "/tarjetas") {
-        return await handleScadaRequest();
+        return await handleScadaRequest({ FIREBASE_URL: env.FIREBASE_URL });
       }
 
       // --- MANIFIESTO Y SW ---

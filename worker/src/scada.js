@@ -5,7 +5,7 @@
 
 import { renderLayout } from './layout.js';
 
-export async function handleScadaRequest() {
+export async function handleScadaRequest(config = {}) {
     const MIS_TARJETAS = [
       {
         nombre: "Tanque de Agua 3",
@@ -111,6 +111,7 @@ export async function handleScadaRequest() {
         input[type=range].scada-range { width: 100%; cursor: pointer; }
         .card.disabled-ui { opacity: 0.6; }
         .card.disabled-ui .canvas, .card.disabled-ui .card-controls-panel { pointer-events: none; filter: grayscale(1); }
+        .card.estop-locked input, .card.estop-locked button { pointer-events: none !important; filter: grayscale(1); }
         
         /* --- SISTEMA DE ALARMAS --- */
         .alarms-section { width: 100%; max-width: 900px; margin-bottom: 20px; }
@@ -149,6 +150,7 @@ export async function handleScadaRequest() {
         .estop-section { margin-top: 20px; padding-top: 15px; border-top: 1px dashed #cbd5e1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
         .estop-badge { flex: 1; padding: 10px; border-radius: 6px; font-weight: 800; font-size: 0.7rem; text-align: center; }
         .estop-badge.inactive { background: #f1f5f9; color: #94a3b8; border: 1px solid #cbd5e1; }
+        .btn-sim-alarm { background: #fbbf24; color: #78350f; padding: 10px 15px; white-space: nowrap; }
         .estop-badge.active { background: #fee2e2; color: #ef4444; border: 1px solid #ef4444; animation: blink-critical 1s infinite; }
 
         /* --- PERFIL DE USUARIO --- */
@@ -202,48 +204,13 @@ export async function handleScadaRequest() {
           <select class="role-selector" onchange="switchUser(this.value)">
             <option value="sup_01">Ver como Supervisor</option>
             <option value="op_01">Ver como Operador</option>
-            <option value="adm_01">Ver como Administrador</option>
+            <option value="adm_01" selected>Ver como Administrador</option>
           </select>
         </div>
       </div>
-      <h2 style="margin-top: 20px; margin-bottom: 20px; color: #334155;">SCADA HMI - USAC</h2>
+      <h2 style="margin-top: 20px; margin-bottom: 20px; color: #334155;">Dashboard - SCADA HMI</h2>
       <div id="alarms-list" class="alarms-section"></div>
       <div class="dashboard">
-        <!-- TARJETA DE TELEMETRÍA Y DIAGNÓSTICO -->
-        <div class="card telemetry-card">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <label style="color: #38bdf8; font-size: 0.8rem; font-weight: 800;">RED Y DIAGNÓSTICO DE TELEMETRÍA</label>
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-size: 0.6rem; color: #94a3b8; font-weight: bold;">HEARTBEAT</span>
-              <div class="heartbeat"></div>
-            </div>
-          </div>
-          <div class="telemetry-grid">
-            <div class="metric-box"><span class="metric-val" id="rssi-val">-65 <small style="font-size:0.5rem">dBm</small></span><span class="metric-label">WiFi RSSI</span></div>
-            <div class="metric-box"><span class="metric-val" id="cycle-val">120 <small style="font-size:0.5rem">ms</small></span><span class="metric-label">Scan Cycle</span></div>
-            <div class="metric-box"><span class="metric-val" id="ping-val">45 <small style="font-size:0.5rem">ms</small></span><span class="metric-label">Ping CF</span></div>
-            <div class="metric-box"><span class="metric-val" id="bw-val">2.4 <small style="font-size:0.5rem">KB/s</small></span><span class="metric-label">Bandwidth</span></div>
-          </div>
-          <div class="db-status">
-            <div class="status-dot"></div>
-            <span>Firebase DB: <b style="color: #22c55e;">CONECTADO</b></span>
-            <span style="margin-left: auto; color: #94a3b8;">Sincronización: <span id="last-sync">hace 0s</span></span>
-          </div>
-        </div>
-
-        <!-- TARJETA DE BALANCE DE MATERIA Y OEE -->
-        <div class="card oee-card">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <label style="color: #be185d; font-size: 0.8rem; font-weight: 800;">BALANCE DE MATERIA & EFICIENCIA (OEE)</label>
-          </div>
-          <div class="oee-grid">
-            <div class="oee-box"><span class="oee-val" id="oee-perc">94.2 <small style="font-size:0.5rem">%</small></span><span class="oee-label">OEE Global</span></div>
-            <div class="oee-box"><span class="oee-val" id="flow-rate">0.0 <small style="font-size:0.5rem">L/min</small></span><span class="oee-label">Caudal Est.</span></div>
-            <div class="oee-box"><span class="oee-val" id="total-vol">124.5 <small style="font-size:0.5rem">L</small></span><span class="oee-label">Vol. Total</span></div>
-            <div class="oee-box"><span class="oee-val" id="runtime-val">08:24 <small style="font-size:0.5rem">h</small></span><span class="oee-label">Runtime</span></div>
-          </div>
-        </div>
-
         <!-- TARJETA DE REGISTRO DE CAMBIOS (AUDIT LOG) -->
         <div class="card audit-log-card">
           <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -278,6 +245,7 @@ export async function handleScadaRequest() {
             <div id="reset-estop-control">
               <button class="btn-ack" style="padding: 10px 15px;" onclick="resetEStop()">RESET (S/R)</button>
             </div>
+            <button id="simulate-alarm-control" class="btn-ack btn-sim-alarm" type="button" onclick="simulateAlarm()" hidden>⚠️ Simular Alarma</button>
           </div>
         </div>
 
@@ -290,8 +258,8 @@ export async function handleScadaRequest() {
             <div class="card-header"><label>${t.nombre}</label><button class="btn-toggle active" id="toggle-${idx}" onclick="toggleCard(${idx})">ON</button></div>
             <div class="canvas">${customSVGs[idx]}</div>
             <div class="card-controls-panel">
-              <label>Color Proceso: <span id="card-colorTxt-${idx}">50</span>%</label>
-              <input type="range" class="scada-range" id="colorSlider-${idx}" min="0" max="19" value="${(idx * 3) % 20}" oninput="updateCardColor(${idx})">
+              <label>${t.animarNivel ? "Nivel de Tanque" : "Color Proceso"}: <span id="card-colorTxt-${idx}">50</span>%</label>
+              <input type="range" class="scada-range" id="colorSlider-${idx}" min="0" max="${t.animarNivel ? "100" : "19"}" step="${t.animarNivel ? "0.1" : "1"}" value="${t.animarNivel ? "50" : (idx * 3) % 20}" oninput="handleCardSliderInput(${idx})">
               <div id="card-statusLabel-${idx}" class="status-badge-mini">OK</div>
             </div>
           </div>`;
@@ -300,15 +268,51 @@ export async function handleScadaRequest() {
           <div class="card-header"><label>Red de Tuberías</label><button class="btn-toggle active" id="toggle-pipes" onclick="togglePipes()">ON</button></div>
           <div class="canvas"><div class="pipe-mini-grid">${svgPipes.map(s => `<div class="pipe-item">${s}</div>`).join('')}</div></div>
           <div class="card-controls-panel" style="flex-direction: row; justify-content: space-between; align-items: center;">
-             <input type="range" class="scada-range" id="pipes-colorSlider" min="0" max="19" value="6" oninput="updatePipesColor()">
+             <input type="range" class="scada-range" id="pipes-colorSlider" min="0" max="19" value="6" oninput="handlePipesColorInput()">
              <div id="pipes-statusLabel" class="status-badge-mini" style="min-width: 100px;">FLUJO OK</div>
           </div>
         </div>
         <div class="card" style="grid-column: span 2; background: #eff6ff; border: 2px solid #3b82f6;">
           <label>Nivel Global: <span id="levelTxt">50</span>%</label>
-          <input type="range" class="scada-range" id="levelSlider" min="0" max="100" value="50" oninput="updateSystemLevel()">
+            <input type="range" class="scada-range" id="levelSlider" min="0" max="100" value="50" oninput="handleSystemLevelInput()">
+        </div>
+
+        <!-- BLOQUES DE DIAGNÓSTICO AL FINAL DEL DASHBOARD -->
+        <div class="card telemetry-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label style="color: #38bdf8; font-size: 0.8rem; font-weight: 800;">RED Y DIAGNÓSTICO DE TELEMETRÍA</label>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 0.6rem; color: #94a3b8; font-weight: bold;">HEARTBEAT</span>
+              <div class="heartbeat"></div>
+            </div>
+          </div>
+          <div class="telemetry-grid">
+            <div class="metric-box"><span class="metric-val" id="rssi-val">-65 <small style="font-size:0.5rem">dBm</small></span><span class="metric-label">WiFi RSSI</span></div>
+            <div class="metric-box"><span class="metric-val" id="cycle-val">120 <small style="font-size:0.5rem">ms</small></span><span class="metric-label">Scan Cycle</span></div>
+            <div class="metric-box"><span class="metric-val" id="ping-val">45 <small style="font-size:0.5rem">ms</small></span><span class="metric-label">Ping CF</span></div>
+            <div class="metric-box"><span class="metric-val" id="bw-val">2.4 <small style="font-size:0.5rem">KB/s</small></span><span class="metric-label">Bandwidth</span></div>
+          </div>
+          <div class="db-status">
+            <div class="status-dot"></div>
+            <span>Firebase DB: <b style="color: #22c55e;">CONECTADO</b></span>
+            <span style="margin-left: auto; color: #94a3b8;">Sincronización: <span id="last-sync">hace 0s</span></span>
+          </div>
+        </div>
+
+        <div class="card oee-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label style="color: #be185d; font-size: 0.8rem; font-weight: 800;">BALANCE DE MATERIA & EFICIENCIA (OEE)</label>
+          </div>
+          <div class="oee-grid">
+            <div class="oee-box"><span class="oee-val" id="oee-perc">94.2 <small style="font-size:0.5rem">%</small></span><span class="oee-label">OEE Global</span></div>
+            <div class="oee-box"><span class="oee-val" id="flow-rate">0.0 <small style="font-size:0.5rem">L/min</small></span><span class="oee-label">Caudal Est.</span></div>
+            <div class="oee-box"><span class="oee-val" id="total-vol">124.5 <small style="font-size:0.5rem">L</small></span><span class="oee-label">Vol. Total</span></div>
+            <div class="oee-box"><span class="oee-val" id="runtime-val">08:24 <small style="font-size:0.5rem">h</small></span><span class="oee-label">Runtime</span></div>
+          </div>
         </div>
       </div>
+      <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+      <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
       <script>
         const paleta = [
           { n: "GRIS", c: "#94a3b8", t: "#000" }, { n: "DEEP", c: "#334155", t: "#fff" },
@@ -324,6 +328,171 @@ export async function handleScadaRequest() {
         ];
         const cardStates = Array(${MIS_TARJETAS.length}).fill(true);
         let pipesState = true;
+        const cardSensorMap = { 0: "sensor3", 2: "sensor2", 4: "sensor1" };
+        const sensorCardMap = { sensor1: 4, sensor2: 2, sensor3: 0 };
+        const visibleCardIndexes = [0, 2, 4, 6, 7];
+        const cardStatePaths = {
+          0: "monitoreo/tanque3Activo",
+          2: "monitoreo/tanque2Activo",
+          4: "monitoreo/tanque1Activo",
+          6: "monitoreo/bomba",
+          7: "monitoreo/valvula"
+        };
+        const cardColorPaths = {
+          6: "system_live/controles/bomba/color",
+          7: "system_live/controles/valvula/color"
+        };
+        const firebaseConfig = {
+          databaseURL: ${JSON.stringify(config.FIREBASE_URL || 'https://esp32-hmi-default-rtdb.firebaseio.com/')}
+        };
+        firebase.initializeApp(firebaseConfig);
+        const firebaseDatabase = firebase.database();
+        const tankLevels = {};
+
+        function writeFirebase(path, value) {
+          firebaseDatabase.ref(path).set(value).catch(error => {
+            console.error("No se pudo actualizar Firebase en " + path, error);
+          });
+        }
+
+        function parseFirebaseState(value) {
+          const normalizedValue = String(value).toLowerCase();
+          return value === true || value === 1 ||
+            normalizedValue === "true" || normalizedValue === "1" ||
+            normalizedValue === "on" || normalizedValue === "encendida";
+        }
+
+        function applyTankLevel(sensor, value) {
+          const level = Math.max(0, Math.min(100, Number(value)));
+          if (!Number.isFinite(level)) return;
+          tankLevels[sensor] = level;
+
+          const cardIdx = sensorCardMap[sensor];
+          if (!Number.isInteger(cardIdx) || !cardSensorMap[cardIdx]) {
+            console.error("No hay una tarjeta de tanque configurada para " + sensor + ".");
+            return;
+          }
+          const slider = document.getElementById("colorSlider-" + cardIdx);
+          if (!slider) {
+            console.error("No se encontró el slider de la tarjeta para " + sensor + ".");
+            return;
+          }
+          slider.value = String(level);
+          updateCardColor(cardIdx);
+
+          const waterLayer = document.querySelector("#card-container-" + cardIdx + " .water-layer");
+          if (waterLayer) waterLayer.style.transform = "scaleY(" + (level / 100) + ")";
+
+          const levels = Object.values(tankLevels);
+          if (levels.length === 3 && levels.every(current => Math.abs(current - level) < 0.01)) {
+            document.getElementById("levelSlider").value = String(Math.round(level));
+            document.getElementById("levelTxt").innerText = String(Math.round(level));
+          }
+        }
+
+        function applyCardState(idx, isOn) {
+          cardStates[idx] = isOn;
+          const button = document.getElementById("toggle-" + idx);
+          const container = document.getElementById("card-container-" + idx);
+          button.innerText = isOn ? "ON" : "OFF";
+          button.className = "btn-toggle " + (isOn ? "active" : "inactive");
+          container.classList.toggle("disabled-ui", !isOn);
+          updateCardColor(idx);
+        }
+
+        function setupFirebaseListeners() {
+          Object.values(cardSensorMap).forEach(sensor => {
+            firebaseDatabase.ref("monitoreo/" + sensor).on("value", snapshot => {
+              if (snapshot.val() !== null) applyTankLevel(sensor, snapshot.val());
+            }, error => console.error("Error leyendo monitoreo/" + sensor, error));
+          });
+
+          Object.entries(cardStatePaths).forEach(([cardIdxText, path]) => {
+            const cardIdx = Number(cardIdxText);
+            firebaseDatabase.ref(path).on("value", snapshot => {
+              if (snapshot.val() !== null) applyCardState(cardIdx, parseFirebaseState(snapshot.val()));
+            }, error => console.error("Error leyendo " + path, error));
+          });
+
+          Object.entries(cardColorPaths).forEach(([cardIdxText, path]) => {
+            const cardIdx = Number(cardIdxText);
+            firebaseDatabase.ref(path).on("value", snapshot => {
+              const value = Number(snapshot.val());
+              if (!Number.isInteger(value) || value < 0 || value > 19) return;
+              document.getElementById("colorSlider-" + cardIdx).value = String(value);
+              updateCardColor(cardIdx);
+            }, error => console.error("Error leyendo " + path, error));
+          });
+
+          firebaseDatabase.ref("system_live/controles/tuberias/activo").on("value", snapshot => {
+            if (snapshot.val() === null) return;
+            pipesState = parseFirebaseState(snapshot.val());
+            const button = document.getElementById("toggle-pipes");
+            button.innerText = pipesState ? "ON" : "OFF";
+            button.className = "btn-toggle " + (pipesState ? "active" : "inactive");
+            updatePipesColor();
+          }, error => console.error("Error leyendo estado de tuberías", error));
+
+          firebaseDatabase.ref("system_live/controles/tuberias/color").on("value", snapshot => {
+            const value = Number(snapshot.val());
+            if (!Number.isInteger(value) || value < 0 || value > 19) return;
+            document.getElementById("pipes-colorSlider").value = String(value);
+            updatePipesColor();
+          }, error => console.error("Error leyendo color de tuberías", error));
+
+          setupAlarmListener();
+        }
+
+        function setupControlVectorListeners() {
+          firebaseDatabase.ref("system_live/controles/modo").on("value", snapshot => {
+            const mode = snapshot.val();
+            if (!["MANUAL", "AUTO", "MANT"].includes(mode)) return;
+            opMode = mode;
+            document.querySelectorAll(".btn-mode").forEach(button => {
+              button.classList.toggle("active", button.id === "mode-" + mode);
+            });
+          }, error => console.error("Error leyendo modo de operación", error));
+
+          [
+            { type: "high", path: "system_live/controles/setpoint_alto" },
+            { type: "low", path: "system_live/controles/setpoint_bajo" }
+          ].forEach(({ type, path }) => {
+            firebaseDatabase.ref(path).on("value", snapshot => {
+              const value = Number(snapshot.val());
+              if (snapshot.val() === null || !Number.isFinite(value)) return;
+              const slider = document.getElementById("sp-" + type);
+              slider.value = String(value);
+              document.getElementById("sp-" + type + "-val").innerText = slider.value + "%";
+            }, error => console.error("Error leyendo " + path, error));
+          });
+
+          firebaseDatabase.ref("system_live/controles/estop").on("value", snapshot => {
+            const value = snapshot.val();
+            if (value === null) return;
+            applyEStopState(parseFirebaseState(value));
+          }, error => console.error("Error leyendo estado E-STOP", error));
+        }
+
+        function setupAuditLogListener() {
+          firebaseDatabase.ref("system_live/logs")
+            .orderByKey()
+            .limitToLast(10)
+            .on("value", snapshot => {
+              const logs = [];
+              snapshot.forEach(child => {
+                const entry = child.val();
+                if (entry && typeof entry === "object") logs.push(entry);
+              });
+              renderAuditLog(logs.reverse());
+            }, error => {
+              console.error("Error leyendo el Audit Log de Firebase", error);
+              const list = document.getElementById("audit-log-list");
+              list.replaceChildren();
+              const item = document.createElement("li");
+              item.textContent = "No fue posible cargar el registro de auditoría.";
+              list.appendChild(item);
+            });
+        }
 
         // --- GESTIÓN DE USUARIOS (RBAC) ---
         const USERS = {
@@ -331,7 +500,7 @@ export async function handleScadaRequest() {
           "sup_01": { name: "Supervisor_01", role: "SUPERVISOR", initials: "S1" },
           "adm_01": { name: "Admin_USAC", role: "ADMINISTRADOR", initials: "AD" }
         };
-        let currentUser = USERS["sup_01"];
+        let currentUser = USERS["adm_01"];
 
         function applyRBAC() {
           const isOp = currentUser.role === 'OPERADOR';
@@ -350,6 +519,7 @@ export async function handleScadaRequest() {
           document.querySelector('.setpoint-group').classList.toggle('readonly-operador', isOp || isSupervisor);
           document.querySelector('.mode-selector').classList.toggle('readonly-operador', isOp || isSupervisor);
           document.getElementById('reset-estop-control').classList.toggle('readonly-operador', isOp || isSupervisor);
+          document.getElementById('simulate-alarm-control').hidden = !currentUser || currentUser.role !== 'ADMINISTRADOR';
         }
 
         function switchUser(uid) {
@@ -359,17 +529,39 @@ export async function handleScadaRequest() {
         }
 
         // --- LÓGICA DE AUDIT LOG ---
-        let auditLogEntries = [];
         function addLogEntry(user, action) {
-          const now = new Date();
-          const ts = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-          auditLogEntries.unshift({ ts, user, action });
-          if(auditLogEntries.length > 10) auditLogEntries.pop();
-          renderAuditLog();
+          firebaseDatabase.ref("system_live/logs").push({
+            user,
+            action,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+          }).catch(error => {
+            console.error("No se pudo guardar una entrada del Audit Log", error);
+          });
         }
-        function renderAuditLog() {
+
+        function renderAuditLog(entries) {
           const list = document.getElementById('audit-log-list');
-          list.innerHTML = auditLogEntries.map(e => \`<li><span class="ts">[\${e.ts}]</span> <b>\${e.user}</b> \${e.action}</li>\`).join('');
+          const fragment = document.createDocumentFragment();
+          entries.forEach(entry => {
+            const item = document.createElement("li");
+            const time = document.createElement("span");
+            time.className = "ts";
+            const rawTimestamp = entry.timestamp ?? entry.ts ?? entry.hora;
+            const parsedTimestamp = typeof rawTimestamp === "number"
+              ? new Date(rawTimestamp)
+              : new Date(String(rawTimestamp || ""));
+            time.textContent = "[" + (
+              Number.isNaN(parsedTimestamp.getTime())
+                ? "hora no disponible"
+                : parsedTimestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+            ) + "] ";
+
+            const user = document.createElement("b");
+            user.textContent = String(entry.user || "Sistema");
+            item.append(time, user, document.createTextNode(" " + String(entry.action || "")));
+            fragment.appendChild(item);
+          });
+          list.replaceChildren(fragment);
         }
 
         // --- ESTADO VECTOR DE CONTROL ---
@@ -378,37 +570,68 @@ export async function handleScadaRequest() {
 
         function setOpMode(mode) {
           if(currentUser.role !== 'ADMINISTRADOR') return;
+          if(!["MANUAL", "AUTO", "MANT"].includes(mode)) return;
           if(opMode === mode) return;
           opMode = mode;
           document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
           document.getElementById('mode-' + mode).classList.add('active');
+          writeFirebase("system_live/controles/modo", mode);
           addLogEntry(currentUser.name, \`cambió MODO a \${mode}.\`);
         }
 
+        const setpointAuditTimers = {};
         function updateSP(type) {
           if(currentUser.role === 'OPERADOR' || currentUser.role === 'SUPERVISOR') return;
+          if(type !== "high" && type !== "low") return;
           const val = document.getElementById('sp-' + type).value;
           document.getElementById('sp-' + type + '-val').innerText = val + '%';
+          const path = type === "high"
+            ? "system_live/controles/setpoint_alto"
+            : "system_live/controles/setpoint_bajo";
+          writeFirebase(path, Number(val));
+
+          clearTimeout(setpointAuditTimers[type]);
+          setpointAuditTimers[type] = setTimeout(() => {
+            addLogEntry(currentUser.name, \`actualizó SETPOINT \${type.toUpperCase()} a \${val}%.\`);
+          }, 500);
+        }
+
+        function applyEStopState(active) {
+          estopActive = active;
+          const indicator = document.getElementById('estop-indicator');
+          indicator.innerText = active
+            ? "🛑 PARADA DE EMERGENCIA ACTIVA"
+            : "SISTEMA: NORMAL (E-STOP OK)";
+          indicator.className = "estop-badge " + (active ? "active" : "inactive");
+
+          document.querySelectorAll('.card').forEach(card => {
+            if(card.id === 'control-vector') return;
+            card.classList.toggle('disabled-ui', active);
+            card.classList.toggle('estop-locked', active);
+          });
+
+          if(!active) {
+            visibleCardIndexes.forEach(idx => {
+              document.getElementById("card-container-" + idx)
+                .classList.toggle("disabled-ui", !cardStates[idx]);
+            });
+            document.getElementById("card-container-pipes")
+              .classList.toggle("disabled-ui", !pipesState);
+          }
         }
 
         function triggerEStop() {
           if(estopActive) return;
-          estopActive = true;
-          document.getElementById('estop-indicator').innerText = "🛑 PARADA DE EMERGENCIA ACTIVA";
-          document.getElementById('estop-indicator').className = "estop-badge active";
-          document.querySelectorAll('.card').forEach(c => { if(c.id !== 'control-vector') c.classList.add('disabled-ui'); });
+          applyEStopState(true);
+          writeFirebase("system_live/controles/estop", true);
           addLogEntry(currentUser.name, 'activó PARADA DE EMERGENCIA.');
         }
 
         function resetEStop() {
           if(currentUser.role !== 'ADMINISTRADOR') return;
           if(!estopActive) return;
-          estopActive = false;
-          document.getElementById('estop-indicator').innerText = "SISTEMA: NORMAL (E-STOP OK)";
-          document.getElementById('estop-indicator').className = "estop-badge inactive";
-          document.querySelectorAll('.card').forEach(c => c.classList.remove('disabled-ui'));
-          for(let i=0; i<cardStates.length; i++) if(!cardStates[i]) document.getElementById("card-container-" + i).classList.add("disabled-ui");
-          if(!pipesState) document.getElementById("card-container-pipes").classList.add("disabled-ui");
+          applyEStopState(false);
+          writeFirebase("system_live/controles/estop", false);
           addLogEntry(currentUser.name, 'reseteó PARADA DE EMERGENCIA.');
         }
 
@@ -456,31 +679,102 @@ export async function handleScadaRequest() {
           lastLevel = currentLevel;
         }
 
-        // --- LÓGICA DE ALARMAS ---
-        let alarmasActivas = [
-          { id: 101, cod: "T1-LVL-HIGH", msg: "Tanque 1: Nivel Crítico (Sobrellenado)", nivel: "critical", hora: "10:45:12" },
-          { id: 102, cod: "P1-TEMP-WRN", msg: "Bomba Principal: Sobrecalentamiento detectado", nivel: "warning", hora: "11:02:30" }
-        ];
-
-        function renderAlarms() {
+        // --- ALARMAS SINCRONIZADAS CON FIREBASE ---
+        function renderAlarms(snapshot) {
           const container = document.getElementById('alarms-list');
-          if (alarmasActivas.length === 0) {
-            container.innerHTML = '<div style="text-align:center; color:#64748b; font-size:0.75rem; font-style:italic; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;">✅ No hay alarmas activas en el sistema</div>';
+          const alarms = [];
+          snapshot.forEach(child => {
+            const alarm = child.val();
+            if (alarm && typeof alarm === "object") alarms.push({ id: child.key, alarm });
+          });
+
+          if (alarms.length === 0) {
+            container.textContent = "✅ No hay alarmas activas en el sistema";
+            container.style.cssText = "text-align:center; color:#64748b; font-size:0.75rem; font-style:italic; padding:10px; border:1px dashed #cbd5e1; border-radius:8px;";
             return;
           }
-          container.innerHTML = alarmasActivas.map(a => \`
-            <div class="alarm-card \${a.nivel}">
-              <div>
-                <span style="opacity:0.7; font-family:monospace;">[\${a.cod}]</span> \${a.msg}
-                <br><small style="font-weight:400; opacity:0.8;">Sello de tiempo: \${a.hora}</small>
-              </div>
-              <button class="btn-ack" onclick="ackAlarm(\${a.id})">ACEPTAR (ACK)</button>
-            </div>\`).join('');
+
+          container.style.cssText = "";
+          const fragment = document.createDocumentFragment();
+          alarms.forEach(({ id, alarm }) => {
+            const rawLevel = String(alarm.nivel || alarm.severity || alarm.tipo || "info").toLowerCase();
+            const level = rawLevel.includes("critic") || rawLevel.includes("high")
+              ? "critical"
+              : rawLevel.includes("warn") || rawLevel.includes("out_of_range") || rawLevel.includes("sudden_drop")
+                ? "warning"
+                : "info";
+            const card = document.createElement("div");
+            card.className = "alarm-card " + level;
+
+            const details = document.createElement("div");
+            const code = document.createElement("span");
+            code.style.cssText = "opacity:0.7; font-family:monospace;";
+            code.textContent = "[" + String(alarm.cod || alarm.codigo || id) + "] ";
+            details.appendChild(code);
+            details.appendChild(document.createTextNode(String(
+              alarm.mensaje || alarm.msg || alarm.detalle || "Alarma sin descripción"
+            )));
+
+            const rawTime = alarm.hora || alarm.timestamp || alarm.ts;
+            const time = typeof rawTime === "number"
+              ? new Date(rawTime).toLocaleString()
+              : String(rawTime || "Hora no disponible");
+            const timeLabel = document.createElement("small");
+            timeLabel.style.cssText = "font-weight:400; opacity:0.8;";
+            timeLabel.textContent = "Sello de tiempo: " + time;
+            details.appendChild(document.createElement("br"));
+            details.appendChild(timeLabel);
+
+            const ack = document.createElement("button");
+            ack.className = "btn-ack";
+            ack.type = "button";
+            ack.textContent = "ACEPTAR (ACK)";
+            ack.addEventListener("click", async () => {
+              ack.disabled = true;
+              try {
+                await firebaseDatabase.ref("system_live/alarmas/" + id).remove();
+              } catch (error) {
+                console.error("No se pudo confirmar la alarma " + id, error);
+                ack.disabled = false;
+                ack.textContent = "ERROR: REINTENTAR";
+              }
+            });
+
+            card.append(details, ack);
+            fragment.appendChild(card);
+          });
+          container.replaceChildren(fragment);
         }
 
-        function ackAlarm(id) {
-          alarmasActivas = alarmasActivas.filter(a => a.id !== id);
-          renderAlarms();
+        function setupAlarmListener() {
+          firebaseDatabase.ref("system_live/alarmas").on("value", renderAlarms, error => {
+            console.error("Error leyendo system_live/alarmas", error);
+            const container = document.getElementById("alarms-list");
+            container.textContent = "No fue posible cargar las alarmas desde Firebase.";
+          });
+        }
+
+        async function simulateAlarm() {
+          if (currentUser.role !== "ADMINISTRADOR") return;
+
+          const messages = ["Fallo en bomba", "Fuga detectada", "Temperatura alta"];
+          const message = messages[Math.floor(Math.random() * messages.length)];
+          const level = Math.random() < 0.5 ? "critical" : "warning";
+          const hora = new Date().toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false
+          });
+          const alarm = { mensaje: message, nivel: level, hora };
+
+          try {
+            await firebaseDatabase.ref("system_live/alarmas").push(alarm);
+            alert("Alarma simulada inyectada: " + level.toUpperCase() + " - " + message);
+          } catch (error) {
+            console.error("No se pudo inyectar la alarma simulada en Firebase", error);
+            alert("No se pudo inyectar la alarma. Revisa la conexión y los permisos de Firebase.");
+          }
         }
 
         function toggleCard(idx) {
@@ -491,6 +785,7 @@ export async function handleScadaRequest() {
           btn.className = "btn-toggle " + (cardStates[idx] ? "active" : "inactive");
           container.classList.toggle("disabled-ui", !cardStates[idx]);
           updateCardColor(idx);
+          if (cardStatePaths[idx]) writeFirebase(cardStatePaths[idx], cardStates[idx]);
         }
 
         function togglePipes() {
@@ -499,15 +794,38 @@ export async function handleScadaRequest() {
           btn.innerText = pipesState ? "ON" : "OFF";
           btn.className = "btn-toggle " + (pipesState ? "active" : "inactive");
           updatePipesColor();
+          writeFirebase("system_live/controles/tuberias/activo", pipesState);
+        }
+
+        function handleCardSliderInput(idx) {
+          updateCardColor(idx);
+          const slider = document.getElementById("colorSlider-" + idx);
+
+          if (cardSensorMap[idx]) {
+            writeFirebase("monitoreo/" + cardSensorMap[idx], Number(slider.value));
+          } else if (cardColorPaths[idx]) {
+            writeFirebase(cardColorPaths[idx], Number(slider.value));
+          }
+        }
+
+        function handlePipesColorInput() {
+          updatePipesColor();
+          writeFirebase("system_live/controles/tuberias/color",
+            Number(document.getElementById("pipes-colorSlider").value));
         }
 
         function updateCardColor(idx) {
           const container = document.getElementById("card-container-" + idx);
           const slider = document.getElementById("colorSlider-" + idx);
-          const color = paleta[slider.value];
+          const value = Number(slider.value);
+          const isTank = Boolean(cardSensorMap[idx]);
+          const colorIdx = isTank ? Math.round((value / 100) * (paleta.length - 1)) : value;
+          const color = paleta[colorIdx];
           const paintLayer = container.querySelector('.paint-layer, .paint-custom');
           
-          document.getElementById("card-colorTxt-" + idx).innerText = Math.round((slider.value/19)*100);
+          document.getElementById("card-colorTxt-" + idx).innerText = isTank
+            ? value.toFixed(1).replace(/\.0$/, "")
+            : Math.round((value / 19) * 100);
           const badge = document.getElementById("card-statusLabel-" + idx);
           
           if (cardStates[idx]) {
@@ -540,16 +858,26 @@ export async function handleScadaRequest() {
           document.querySelectorAll('.water-layer').forEach(w => w.style.transform = "scaleY(" + (val/100) + ")");
         }
 
+        function handleSystemLevelInput() {
+          updateSystemLevel();
+          const level = Number(document.getElementById("levelSlider").value);
+          ["sensor1", "sensor2", "sensor3"].forEach(sensor => {
+            writeFirebase("monitoreo/" + sensor, level);
+          });
+        }
+
         window.onload = () => {
           addLogEntry('Sistema', 'HMI SCADA iniciado.');
-          renderAlarms(); 
           applyRBAC();
           updateSystemLevel(); 
           updatePipesColor(); 
           updateTelemetry(); 
           updateOEEAndFlow();
           setInterval(() => { updateTelemetry(); updateOEEAndFlow(); }, 2000);
-          for(let i=0; i<cardStates.length; i++) if(!MIS_TARJETAS[i].vacio) updateCardColor(i);
+          visibleCardIndexes.forEach(idx => updateCardColor(idx));
+          setupFirebaseListeners();
+          setupControlVectorListeners();
+          setupAuditLogListener();
         };
       </script>`;
     return new Response(renderLayout(html, "tarjetas"), { headers: { "Content-Type": "text/html;charset=UTF-8" } });

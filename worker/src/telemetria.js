@@ -32,6 +32,28 @@ export const renderDashboard = (config) => renderLayout(`
             padding: 0 5px;
             box-sizing: border-box;
         }
+        .telemetry-heading {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .telemetry-role {
+            padding: 5px 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #fff;
+            color: #1e293b;
+            font-size: 0.75rem;
+        }
+        .telemetry-admin-controls[hidden] { display: none; }
+        .telemetry-badges {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 10px;
+            min-width: 0;
+        }
         .container { 
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -119,10 +141,35 @@ export const renderDashboard = (config) => renderLayout(`
             min-width: 50px;
             text-align: right;
         }
+        @media (max-width: 700px) {
+            .header {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .telemetry-badges {
+                justify-content: flex-start;
+                width: 100%;
+                gap: 8px;
+            }
+            .nivel-badge {
+                flex: 1 1 calc(50% - 8px);
+                min-width: 0;
+            }
+        }
     </style>
     <div class="header">
-        <h1 style="color: #1a237e; margin: 0; font-size: 1.5rem;">Panel de Control de Telemetría</h1>
-        <div style="display: flex; gap: 10px;">
+        <div class="telemetry-heading">
+            <h1 style="color: #1a237e; margin: 0; font-size: 1.5rem;">Monitoreo de Telemetría</h1>
+            <label for="telemetry-role">Rol de prueba:
+                <select id="telemetry-role" class="telemetry-role" onchange="switchTelemetryRole(this.value)">
+                    <option value="adm_01">Administrador</option>
+                    <option value="sup_01">Supervisor</option>
+                    <option value="op_01">Operador</option>
+                </select>
+            </label>
+        </div>
+        <div class="telemetry-badges">
             <div class="nivel-badge"><span class="nivel-label">TANQUE 1</span><span id="txt-actual-1">0.0%</span></div>
             <div class="nivel-badge"><span class="nivel-label">TANQUE 2</span><span id="txt-actual-2">0.0%</span></div>
             <div class="nivel-badge"><span class="nivel-label">TANQUE 3</span><span id="txt-actual-3">0.0%</span></div>
@@ -152,7 +199,7 @@ export const renderDashboard = (config) => renderLayout(`
                            oninput="manualSim('${id}', this.value)" onchange="manualSim('${id}', this.value)">
                     <span class="sim-value-display" id="val-sim-${id}">25.0${id === 'temp' ? '°C' : '%'}</span>
                 </div>
-                <div class="btn-group">
+                <div class="btn-group telemetry-admin-controls" hidden>
                     <button id="btn-sim-${id}" onclick="toggleSim('${id}')" style="background:#2196F3">SIM: AUTO OFF</button>
                     <button style="background:#ff9800" onclick="limpiarGrafica('${id}')">LIMPIAR GRÁFICA</button>
                 </div>
@@ -167,6 +214,24 @@ export const renderDashboard = (config) => renderLayout(`
         const simStates = { 1: false, 2: false, 3: false, temp: false };
         const simIntervals = { 1: null, 2: null, 3: null, temp: null };
         const isRealTime = { 1: true, 2: true, 3: true, temp: true };
+        const telemetryUsers = {
+            op_01: { role: 'OPERADOR' },
+            sup_01: { role: 'SUPERVISOR' },
+            adm_01: { role: 'ADMINISTRADOR' }
+        };
+        let currentUser = telemetryUsers.adm_01;
+
+        function applyTelemetryRBAC() {
+            const isAdmin = currentUser.role === 'ADMINISTRADOR';
+            document.querySelectorAll('.telemetry-admin-controls').forEach(controls => {
+                controls.hidden = !isAdmin;
+            });
+        }
+
+        function switchTelemetryRole(userId) {
+            currentUser = telemetryUsers[userId] || telemetryUsers.op_01;
+            applyTelemetryRBAC();
+        }
 
         // --- CHARTS ---
         function initChart(id) {
@@ -223,7 +288,12 @@ export const renderDashboard = (config) => renderLayout(`
             const dbRef = firebase.database().ref(fbPath);
             
             dbRef.on('value', (snapshot) => {
-                const val = snapshot.val() || 0; 
+                const rawValue = snapshot.val();
+                const val = rawValue === null ? 0 : Number(rawValue);
+                if (!Number.isFinite(val)) {
+                    console.error("Valor no numérico recibido en " + fbPath, rawValue);
+                    return;
+                }
                 const valorLimpio = parseFloat(val).toFixed(1);
                 const suffix = id === 'temp' ? '°C' : '%';
 
@@ -240,6 +310,10 @@ export const renderDashboard = (config) => renderLayout(`
                 if (!simStates[id] && isRealTime[id]) {
                     pushToChart(id, val);
                 }
+            }, (error) => {
+                console.error("Error leyendo " + fbPath + " desde Firebase", error);
+                const status = document.getElementById('status-msg-' + id);
+                if (status) status.innerText = "❌ Error de Firebase: " + error.message;
             });
         }
 
@@ -250,7 +324,11 @@ export const renderDashboard = (config) => renderLayout(`
             document.getElementById('val-sim-' + id).innerText = val.toFixed(1) + suffix;
             // Sincronizamos con Firebase para que el ESP u otros clientes vean el cambio
             const fbPath = id === 'temp' ? "monitoreo/temperatura" : "monitoreo/sensor" + id;
-            firebase.database().ref(fbPath).set(val);
+            firebase.database().ref(fbPath).set(val).catch(error => {
+                console.error("No se pudo actualizar Firebase en " + fbPath, error);
+                const status = document.getElementById('status-msg-' + id);
+                if (status) status.innerText = "❌ Error al escribir en Firebase: " + error.message;
+            });
         }
 
         // --- LÓGICA DE RANGOS HISTÓRICOS (CONSULTA A D1) ---
@@ -318,6 +396,7 @@ export const renderDashboard = (config) => renderLayout(`
 
         // --- LÓGICA DE SIMULACIÓN AUTOMÁTICA (CORRIMIENTO) ---
         function toggleSim(id) {
+            if (currentUser.role !== 'ADMINISTRADOR') return;
             simStates[id] = !simStates[id];
             const btn = document.getElementById('btn-sim-' + id);
             const status = document.getElementById('status-msg-' + id);
@@ -340,6 +419,7 @@ export const renderDashboard = (config) => renderLayout(`
         }
 
         function limpiarGrafica(id) {
+            if (currentUser.role !== 'ADMINISTRADOR') return;
             const chart = tankCharts[id];
             if (!chart) return;
             chart.data.labels = [];
@@ -348,6 +428,7 @@ export const renderDashboard = (config) => renderLayout(`
         }
 
         window.onload = () => {
+            applyTelemetryRBAC();
             [1, 2, 3, 'temp'].forEach(id => {
                 initChart(id);
                 setupFirebase(id);
