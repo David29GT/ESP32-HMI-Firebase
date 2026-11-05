@@ -171,7 +171,7 @@ export async function handleScadaRequest() {
         .readonly-operador::after { 
             content: "🔒"; position: absolute; top: 10px; right: 10px; font-size: 0.8rem; z-index: 20; background: #f8fafc; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; opacity: 0.8;
         }
-        .readonly-operador input, .readonly-operador button:not(.btn-ack) { 
+        .readonly-operador input, .readonly-operador button:not(#btn-estop) { 
             pointer-events: none !important; opacity: 0.4 !important; filter: grayscale(1); 
         }
 
@@ -274,8 +274,10 @@ export async function handleScadaRequest() {
           </div>
           <div class="estop-section">
             <div id="estop-indicator" class="estop-badge inactive">SISTEMA: NORMAL (E-STOP OK)</div>
-            <button class="btn-ack" style="background: #ef4444; padding: 10px 15px;" onclick="triggerEStop()">E-STOP</button>
-            <button class="btn-ack" style="padding: 10px 15px;" onclick="resetEStop()">RESET (S/R)</button>
+            <button id="btn-estop" class="btn-ack" style="background: #ef4444; padding: 10px 15px;" onclick="triggerEStop()">E-STOP</button>
+            <div id="reset-estop-control">
+              <button class="btn-ack" style="padding: 10px 15px;" onclick="resetEStop()">RESET (S/R)</button>
+            </div>
           </div>
         </div>
 
@@ -333,6 +335,7 @@ export async function handleScadaRequest() {
 
         function applyRBAC() {
           const isOp = currentUser.role === 'OPERADOR';
+          const isSupervisor = currentUser.role === 'SUPERVISOR';
           document.getElementById('user-avatar-initials').innerText = currentUser.initials;
           document.getElementById('user-display-name').innerText = currentUser.name;
           document.getElementById('user-display-role').innerText = currentUser.role;
@@ -342,6 +345,11 @@ export async function handleScadaRequest() {
             if(isOp) c.classList.add('readonly-operador');
             else c.classList.remove('readonly-operador');
           });
+
+          document.getElementById('control-vector').classList.toggle('readonly-operador', isOp);
+          document.querySelector('.setpoint-group').classList.toggle('readonly-operador', isOp || isSupervisor);
+          document.querySelector('.mode-selector').classList.toggle('readonly-operador', isOp || isSupervisor);
+          document.getElementById('reset-estop-control').classList.toggle('readonly-operador', isOp || isSupervisor);
         }
 
         function switchUser(uid) {
@@ -369,6 +377,7 @@ export async function handleScadaRequest() {
         let estopActive = false;
 
         function setOpMode(mode) {
+          if(currentUser.role !== 'ADMINISTRADOR') return;
           if(opMode === mode) return;
           opMode = mode;
           document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
@@ -377,6 +386,7 @@ export async function handleScadaRequest() {
         }
 
         function updateSP(type) {
+          if(currentUser.role === 'OPERADOR' || currentUser.role === 'SUPERVISOR') return;
           const val = document.getElementById('sp-' + type).value;
           document.getElementById('sp-' + type + '-val').innerText = val + '%';
         }
@@ -391,6 +401,7 @@ export async function handleScadaRequest() {
         }
 
         function resetEStop() {
+          if(currentUser.role !== 'ADMINISTRADOR') return;
           if(!estopActive) return;
           estopActive = false;
           document.getElementById('estop-indicator').innerText = "SISTEMA: NORMAL (E-STOP OK)";

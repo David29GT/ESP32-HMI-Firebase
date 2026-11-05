@@ -23,6 +23,32 @@ const SETPOINTS = {
   TEMP_MAX: 55
 };
 
+const PROTECTED_PAGE_PATHS = new Set([
+  "/",
+  "/scada",
+  "/tarjetas",
+  "/dashboard",
+  "/proceso",
+  "/alarmas"
+]);
+
+function hasValidPageCredentials(request, expectedPassword) {
+  const authorization = request.headers.get("Authorization");
+  const match = authorization && authorization.match(/^Basic\s+(.+)$/i);
+  if (!match) return false;
+
+  try {
+    const bytes = Uint8Array.from(atob(match[1]), char => char.charCodeAt(0));
+    const credentials = new TextDecoder().decode(bytes);
+    const separator = credentials.indexOf(":");
+    return separator !== -1 &&
+      credentials.slice(0, separator) === "USAC" &&
+      credentials.slice(separator + 1) === expectedPassword;
+  } catch {
+    return false;
+  }
+}
+
 export default {
   async fetch(request, env) {
     try {
@@ -31,6 +57,26 @@ export default {
       }
 
       const url = new URL(request.url);
+
+      if (request.method === "GET" && PROTECTED_PAGE_PATHS.has(url.pathname)) {
+        if (!env.APP_PASSWORD) {
+          return new Response(JSON.stringify({ error: "Autenticación no configurada" }), {
+            status: 503,
+            headers: { ...CORS_HEADERS, "Cache-Control": "no-store" }
+          });
+        }
+
+        if (!hasValidPageCredentials(request, env.APP_PASSWORD)) {
+          return new Response("Autenticación requerida", {
+            status: 401,
+            headers: {
+              "WWW-Authenticate": 'Basic realm="USAC HMI", charset="UTF-8"',
+              "Cache-Control": "no-store",
+              "Content-Type": "text/plain; charset=utf-8"
+            }
+          });
+        }
+      }
 
       // --- ENDPOINT: POST /api/data ---
       if (request.method === "POST" && url.pathname === "/api/data") {

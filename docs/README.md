@@ -1,3 +1,4 @@
+```markdown
 # ESP32 HMI Real-Time Monitor (SCADA Web)
 
 Sistema SCADA para monitoreo de 3 tanques de agua y una bomba, con adquisición de datos desde un ESP32, almacenamiento en Firebase Realtime Database, procesamiento histórico automatizado y visualización en una interfaz HMI desplegada en Cloudflare Workers.
@@ -23,14 +24,14 @@ El proyecto ya incluye la implementación de varias capas funcionales:
   - `t3` (Nivel Tanque 3)
   - `temp` (Temperatura)
   - `pumpRunning` (Estado de la bomba)
-- **Comandos (NUEVO):** El ESP32 escucha el nodo `system_live/comandos` para recibir órdenes desde la web (ej. encender bomba, activar E-STOP).
+- **Comandos:** El ESP32 escucha el nodo `system_live/comandos` para recibir órdenes desde la web (ej. encender bomba, activar E-STOP).
 
 ### 3. HMI / SCADA Unificado en Cloudflare Worker
-Se ha rediseñado la interfaz para tener un enrutamiento unificado con un menú de navegación superior, dividiendo la aplicación en 4 vistas principales:
+Se ha rediseñado la interfaz para tener un enrutamiento unificado con un menú de navegación superior (`layout.js`), dividiendo la aplicación en 4 vistas principales:
 
-- **`/` o `/scada` (Vista de Proceso):** Diagrama P&ID animado (SVG desde Cloudinary) que refleja el estado real. El agua de los tanques sube/baja y la bomba cambia de color según los datos de Firebase. Incluye panel de control lateral (sliders).
+- **`/` o `/scada` o `/proceso` (Vista de Proceso):** Diagrama P&ID animado (SVG desde Cloudinary) que refleja el estado real. El agua de los tanques sube/baja y la bomba cambia de color según los datos de Firebase en tiempo real. Incluye panel de control lateral (sliders).
 - **`/tarjetas` (Vista de Instrumentación):** Tarjetas individuales para cada equipo (Tanque 1, Tanque 2, Bomba, etc.) con indicadores visuales de color y estado.
-- **`/telemetria` (Vista de Gráficas):** Dashboard con Chart.js para ver datos en tiempo real (vía Firebase) e históricos (vía consultas a D1).
+- **`/dashboard` (Vista de Gráficas):** Dashboard con Chart.js para ver datos en tiempo real (vía Firebase) e históricos (vía consultas a D1).
 - **`/alarmas` (Vista de Alarmas):** Sistema visual de alertas críticas y advertencias, con botón de "ACK" (Aceptar) para silenciar.
 
 ### 4. ETL y almacenamiento histórico
@@ -46,7 +47,7 @@ Se ha rediseñado la interfaz para tener un enrutamiento unificado con un menú 
                    |  (SCADA SVG / Tarjetas / Gráficas)|
                    +-----------------+-----------------+
                                      |
-                   [WebSockets / HTTP fetch] (Cloudflare Worker)
+                   [HTTP Basic Auth / HTTP fetch] (Cloudflare Worker)
                                      |
                                      v
 +------------------+      +--------------------+      +------------------+
@@ -76,11 +77,11 @@ Se ha rediseñado la interfaz para tener un enrutamiento unificado con un menú 
 ├── worker/
 │   ├── wrangler.toml              # Configuración de Cloudflare Workers/D1
 │   └── src/
-│       ├── index.js               # Router principal (Unifica las 4 vistas)
+│       ├── index.js               # Router principal (Auth Basic + Unifica las 4 vistas)
 │       ├── database.js            # Acceso a D1
-│       ├── layout.js              # (Nuevo) Menú de navegación común
-│       ├── scada_svg.js           # Lógica del P&ID (SVG animado)
-│       ├── tarjetas.js            # Vista de instrumentación (Cards)
+│       ├── layout.js              # Menú de navegación común
+│       ├── scada_svg.js           # Lógica del P&ID (SVG animado + Firebase)
+│       ├── scada.js               # Vista de instrumentación (Cards + RBAC)
 │       ├── telemetria.js          # Vista de gráficas (Chart.js)
 │       ├── alarmas.js             # Vista de alarmas (Pendiente pulir)
 │       └── manifest.js            # Configuración de manifiesto PWA
@@ -94,6 +95,7 @@ Se ha rediseñado la interfaz para tener un enrutamiento unificado con un menú 
 - **API/Edge:** Cloudflare Workers
 - **Frontend:** JavaScript ES6+, HTML, CSS, SVG (Chart.js para telemetría)
 - **CDN Multimedia:** Cloudinary (alojamiento de los SVGs del P&ID)
+- **Seguridad:** HTTP Basic Auth (Worker) + Firebase Rules
 
 ## 🔌 Flujo de Datos y Control (Paso a Paso)
 
@@ -109,10 +111,15 @@ Para que el sistema funcione de forma real, el flujo es el siguiente:
 
 ## 🛡️ Seguridad y Roles (RBAC)
 
-La HMI incluye una maqueta de roles (Operador, Supervisor, Administrador). Para que sea seguro en producción:
-- Se debe implementar **Cloudflare Access** para autenticar usuarios reales (Google/Email) antes de entrar a la web.
-- El Worker validará el JWT (Token) del usuario y rechazará las peticiones de escritura (ej. accionar bombas) si el rol no es el adecuado.
-- Los accesos a Firebase desde la web deben estar restringidos por reglas (`Firebase Rules`) para evitar que usuarios no autenticados lean o escriban datos.
+### Autenticación y Red
+- **HTTP Basic Auth:** El Worker protege todas las vistas HTML mediante autenticación básica. El usuario es `USAC` y la contraseña se guarda de forma segura en Cloudflare mediante el secreto `APP_PASSWORD`. La API `/api/data` queda libre de autenticación para permitir el envío de datos del ESP32.
+- **Firebase Rules:** Se han configurado reglas estrictas que bloquean el acceso global y solo permiten lectura/escritura en el nodo `system_live`.
+
+### Control de Acceso Basado en Roles (RBAC) en la HMI
+La interfaz cuenta con un selector de roles que modifica dinámicamente los permisos de la interfaz:
+- **Operador:** Tiene todos los controles bloqueados (sliders, setpoints, modos). **Excepción:** El botón de **E-STOP** siempre está activo por seguridad.
+- **Supervisor:** Puede accionar los sliders de los tanques y la bomba. Tiene bloqueados los *setpoints* (límites alto/bajo), el cambio de modo de operación (Manual/Auto/Mantenimiento) y el botón de **RESET**.
+- **Administrador:** Tiene acceso total. Es el único rol que puede cambiar los modos, los setpoints y resetear el sistema tras una parada de emergencia.
 
 ## Estado actual del proyecto
 
@@ -121,15 +128,18 @@ La HMI incluye una maqueta de roles (Operador, Supervisor, Administrador). Para 
 - [x] Envío de datos a Firebase
 - [x] Lectura y normalización de telemetría desde Firebase
 - [x] HMI/SCADA con representación visual de tanques y bomba (SVG desde Cloudinary)
+- [x] Conexión en tiempo real del SVG a Firebase (animación de agua y bomba)
+- [x] Control de actuadores web (escritura en Firebase)
 - [x] Generación de JSON optimizado para gráficos
 - [x] Dashboard de telemetría con Chart.js
 - [x] Automatización periódica con GitHub Actions
 - [x] API de acceso por Cloudflare Workers
+- [x] Layout unificado y navegación entre las 4 vistas
+- [x] Implementación de HTTP Basic Auth en el Worker
+- [x] Lógica de Roles (RBAC) diferenciada para Operador, Supervisor y Admin
 
 ### Pendiente / En Desarrollo (Roadmap)
-- [ ] **Refactorización del Router:** Unificar las vistas de SCADA, Tarjetas y Telemetría en un solo archivo `index.js` con un layout común.
-- [ ] **Conexión SVG-Firebase:** Modificar `Worker_ProcesoCasaV5` para que las animaciones del agua respondan a los datos reales de Firebase en lugar de sliders locales.
-- [ ] **Control de Actuadores:** Implementar la lógica en la web para escribir comandos en Firebase y en el ESP32 para leerlos y accionar los relés.
-- [ ] **Vista de Alarmas:** Conectar el sistema de alertas (críticas y advertencias) a Firebase.
-- [ ] **Seguridad:** Añadir autenticación con Cloudflare Access y reglas de Firebase.
-- [ ] **Alertas por correo/Telegram:** Usar un Cron Trigger en Cloudflare para notificar si hay un fallo crítico.
+- [ ] **Vista de Alarmas:** Conectar el sistema de alertas dinámicas (críticas y advertencias) a Firebase.
+- [ ] **Alertas externas:** Usar un Cron Trigger en Cloudflare para notificar fallos críticos por correo o Telegram.
+- [ ] **Autenticación Avanzada:** Migrar de Basic Auth a Cloudflare Access o Firebase Auth para una seguridad de nivel empresarial.
+```
