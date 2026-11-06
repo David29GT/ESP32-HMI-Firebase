@@ -5,8 +5,8 @@ export function renderAlarmas(config = {}) {
     <style>
       body {
         margin: 0;
-        background: #f1f5f9;
-        color: #1e293b;
+        background: var(--bg-body);
+        color: var(--text-main);
         font-family: 'Segoe UI', sans-serif;
       }
       .alarmas-page {
@@ -27,25 +27,25 @@ export function renderAlarmas(config = {}) {
         align-items: center;
         gap: 16px;
         padding: 16px;
-        border: 2px solid transparent;
+        border: 2px solid var(--border-main);
         border-radius: 10px;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+        box-shadow: var(--shadow-card);
       }
       .alarma-critica {
-        color: #7f1d1d;
-        background: #fee2e2;
-        border-color: #ef4444;
+        color: var(--critical-text);
+        background: var(--critical-soft);
+        border-color: var(--alert);
         animation: parpadeo-critico 1.5s infinite;
       }
       .alarma-advertencia {
-        color: #78350f;
-        background: #fef3c7;
-        border-color: #f59e0b;
+        color: var(--warning-text);
+        background: var(--warning-soft);
+        border-color: var(--warning);
       }
       .alarma-info {
-        color: #1e3a8a;
-        background: #dbeafe;
-        border-color: #60a5fa;
+        color: var(--info-text);
+        background: var(--info-soft);
+        border-color: var(--accent);
       }
       .alarma-detalle {
         display: grid;
@@ -66,7 +66,7 @@ export function renderAlarmas(config = {}) {
         padding: 8px 16px;
         border: 0;
         border-radius: 6px;
-        background: #1e293b;
+        background: var(--nav-active-bg);
         color: white;
         font-weight: 800;
         cursor: pointer;
@@ -77,14 +77,14 @@ export function renderAlarmas(config = {}) {
       }
       .alarmas-mensaje {
         padding: 16px;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--border-main);
         border-radius: 8px;
-        background: white;
-        color: #475569;
+        background: var(--bg-card);
+        color: var(--text-muted);
       }
       .alarmas-mensaje.error {
-        border-color: #ef4444;
-        color: #991b1b;
+        border-color: var(--alert);
+        color: var(--critical-text);
       }
       @keyframes parpadeo-critico {
         50% { box-shadow: 0 0 14px rgba(239, 68, 68, 0.55); }

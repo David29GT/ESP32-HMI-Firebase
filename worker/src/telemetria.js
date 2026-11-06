@@ -11,8 +11,8 @@ export const renderDashboard = (config) => renderLayout(`
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
         body { 
-            background-color: #f1f5f9; 
-            color: #1e293b; 
+            background-color: var(--bg-body);
+            color: var(--text-main);
             font-family: 'Segoe UI', sans-serif; 
             display: flex; 
             flex-direction: column; 
@@ -40,10 +40,10 @@ export const renderDashboard = (config) => renderLayout(`
         }
         .telemetry-role {
             padding: 5px 8px;
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--border-main);
             border-radius: 6px;
-            background: #fff;
-            color: #1e293b;
+            background: var(--bg-input);
+            color: var(--text-main);
             font-size: 0.75rem;
         }
         .telemetry-admin-controls[hidden] { display: none; }
@@ -63,18 +63,18 @@ export const renderDashboard = (config) => renderLayout(`
         }
         .panel { 
             grid-column: span 2;
-            background: white; 
+            background: var(--bg-card);
             padding: 15px; 
             border-radius: 12px; 
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--border-main);
             box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
             width: 100%; 
             box-sizing: border-box;
             min-width: 0; 
         }
         .nivel-badge { 
-            background: #1a237e; 
-            color: #fff; 
+            background: var(--accent-strong);
+            color: var(--on-accent);
             padding: 4px 8px; 
             border-radius: 8px; 
             font-size: 14px; 
@@ -82,40 +82,40 @@ export const renderDashboard = (config) => renderLayout(`
             text-align: center; 
             min-width: 70px;
         }
-        .nivel-badge.temp { background: #d32f2f; }
+        .nivel-badge.temp { background: var(--alert); }
         .nivel-label { font-size: 9px; display: block; opacity: 0.8; }
         .btn-group { display: flex; gap: 4px; margin: 8px 0; flex-wrap: wrap; }
         .range-selector { 
-            background: #f8fafc; 
+            background: var(--bg-subtle);
             padding: 8px; 
             border-radius: 8px; 
-            border: 1px dashed #cbd5e1;
+            border: 1px dashed var(--border-main);
             margin-top: 5px;
         }
-        .info-msg { font-size: 10px; color: #1a237e; margin-bottom: 5px; opacity: 0.7; }
+        .info-msg { font-size: 10px; color: var(--accent); margin-bottom: 5px; opacity: 0.9; }
         
         button { 
             flex: 1;
             padding: 6px 2px; 
             border: none; 
             border-radius: 4px; 
-            background: #2196F3; 
-            color: white; 
+            background: var(--accent);
+            color: var(--on-accent);
             cursor: pointer; 
             font-size: 10px; 
             font-weight: bold;
             transition: 0.2s;
         }
         button:hover { opacity: 0.8; }
-        button.active { background: #1a237e !important; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; }
-        h2 { color: #1a237e; margin: 0; font-size: 1rem; }
+        button.active { background: var(--accent-strong) !important; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-main); padding-bottom: 8px; }
+        h2 { color: var(--accent); margin: 0; font-size: 1rem; }
         canvas { width: 100% !important; max-height: 280px; }
 
         /* --- SIMULATION PANEL (DARK INDUSTRIAL) --- */
         .sim-panel {
-            background: #1e293b;
-            color: #38bdf8;
+            background: var(--bg-subtle);
+            color: var(--accent);
             padding: 12px;
             border-radius: 8px;
             margin-bottom: 12px;
@@ -123,21 +123,21 @@ export const renderDashboard = (config) => renderLayout(`
             align-items: center;
             gap: 15px;
             font-size: 11px;
-            border: 1px solid #334155;
+            border: 1px solid var(--border-main);
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
         }
-        .sim-panel label { font-weight: 800; letter-spacing: 0.5px; color: #94a3b8; }
+        .sim-panel label { font-weight: 800; letter-spacing: 0.5px; color: var(--text-muted); }
         .sim-panel input[type=range] {
             flex: 1;
             cursor: pointer;
-            accent-color: #38bdf8;
+            accent-color: var(--accent);
         }
         .sim-value-display {
             font-family: 'Consolas', monospace;
-            background: #0f172a;
+            background: var(--bg-body);
             padding: 4px 8px;
             border-radius: 4px;
-            border: 1px solid #334155;
+            border: 1px solid var(--border-main);
             min-width: 50px;
             text-align: right;
         }
@@ -160,7 +160,7 @@ export const renderDashboard = (config) => renderLayout(`
     </style>
     <div class="header">
         <div class="telemetry-heading">
-            <h1 style="color: #1a237e; margin: 0; font-size: 1.5rem;">Monitoreo de Telemetría</h1>
+            <h1 style="color: var(--text-main); margin: 0; font-size: 1.5rem;">Monitoreo de Telemetría</h1>
             <label for="telemetry-role">Rol de prueba:
                 <select id="telemetry-role" class="telemetry-role" onchange="switchTelemetryRole(this.value)">
                     <option value="adm_01">Administrador</option>
@@ -200,8 +200,8 @@ export const renderDashboard = (config) => renderLayout(`
                     <span class="sim-value-display" id="val-sim-${id}">25.0${id === 'temp' ? '°C' : '%'}</span>
                 </div>
                 <div class="btn-group telemetry-admin-controls" hidden>
-                    <button id="btn-sim-${id}" onclick="toggleSim('${id}')" style="background:#2196F3">SIM: AUTO OFF</button>
-                    <button style="background:#ff9800" onclick="limpiarGrafica('${id}')">LIMPIAR GRÁFICA</button>
+                    <button id="btn-sim-${id}" onclick="toggleSim('${id}')" style="background:var(--accent)">SIM: AUTO OFF</button>
+                    <button style="background:var(--warning)" onclick="limpiarGrafica('${id}')">LIMPIAR GRÁFICA</button>
                 </div>
                 <canvas id="chart-${id}"></canvas>
             </div>
@@ -234,9 +234,39 @@ export const renderDashboard = (config) => renderLayout(`
         }
 
         // --- CHARTS ---
+        function getThemeColor(variable) {
+            return getComputedStyle(document.documentElement).getPropertyValue(variable).trim();
+        }
+
+        function updateChartsForTheme() {
+            Chart.defaults.color = getThemeColor('--chart-text');
+            Object.entries(tankCharts).forEach(([id, chart]) => {
+                if (!chart) return;
+                const seriesColor = getThemeColor(
+                    id === '1' ? '--chart-series-1' :
+                    id === '2' ? '--chart-series-2' :
+                    id === '3' ? '--chart-series-3' : '--chart-series-temp'
+                );
+                chart.data.datasets[0].borderColor = seriesColor;
+                chart.data.datasets[0].backgroundColor = getThemeColor('--chart-fill');
+                chart.data.datasets[0].pointBackgroundColor = seriesColor;
+                ['x', 'y'].forEach(axis => {
+                    chart.options.scales[axis].ticks.color = getThemeColor('--chart-text');
+                    chart.options.scales[axis].grid.color = getThemeColor('--chart-grid');
+                    chart.options.scales[axis].border.color = getThemeColor('--chart-grid');
+                });
+                chart.update('none');
+            });
+        }
+
         function initChart(id) {
             const isTemp = id === 'temp';
             const ctx = document.getElementById('chart-' + id);
+            const seriesColor = getThemeColor(
+                id === '1' ? '--chart-series-1' :
+                id === '2' ? '--chart-series-2' :
+                id === '3' ? '--chart-series-3' : '--chart-series-temp'
+            );
             tankCharts[id] = new Chart(ctx, {
                 type: 'line',
                 data: { 
@@ -244,8 +274,9 @@ export const renderDashboard = (config) => renderLayout(`
                     datasets: [{ 
                         label: 'Nivel %', 
                         data: [], 
-                        borderColor: id === '1' ? '#2196F3' : id === '2' ? '#4caf50' : id === '3' ? '#ff9800' : '#f44336', 
-                        backgroundColor: 'rgba(0,0,0,0.05)', 
+                        borderColor: seriesColor,
+                        pointBackgroundColor: seriesColor,
+                        backgroundColor: getThemeColor('--chart-fill'),
                         fill: true, 
                         tension: 0.4,
                         pointRadius: 2
@@ -255,13 +286,24 @@ export const renderDashboard = (config) => renderLayout(`
                     responsive: true, maintainAspectRatio: false,
                     animation: { duration: 600 },
                     scales: { 
-                        y: { beginAtZero: true, max: isTemp ? 80 : 100, ticks: { callback: v => v + (isTemp ? '°C' : '%') } },
-                        x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } }
+                        y: {
+                            beginAtZero: true,
+                            max: isTemp ? 80 : 100,
+                            ticks: { color: getThemeColor('--chart-text'), callback: v => v + (isTemp ? '°C' : '%') },
+                            grid: { color: getThemeColor('--chart-grid') },
+                            border: { color: getThemeColor('--chart-grid') }
+                        },
+                        x: {
+                            ticks: { color: getThemeColor('--chart-text'), maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+                            grid: { color: getThemeColor('--chart-grid') },
+                            border: { color: getThemeColor('--chart-grid') }
+                        }
                     },
                     plugins: { legend: { display: false } }
                 }
             });
         }
+        document.addEventListener('hmi:themechange', updateChartsForTheme);
 
         // --- FUNCIÓN DE EMPUJE DE DATOS (CORRIMIENTO) ---
         function pushToChart(id, val) {

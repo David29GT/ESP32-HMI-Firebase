@@ -116,7 +116,7 @@ export async function handleScadaRequest(config = {}) {
 
     const html = `
       <style>
-        body { background: #f1f5f9; color: #1e293b; font-family: 'Segoe UI', sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; margin: 0; }
+        body { background: var(--bg-body); color: var(--text-main); font-family: 'Segoe UI', sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; margin: 0; }
         .dashboard { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; width: 100%; max-width: 1100px; }
         .dashboard > * { order: 20; min-width: 0; }
         .dashboard > #card-container-0 { order: 1; }
@@ -128,31 +128,31 @@ export async function handleScadaRequest(config = {}) {
         .dashboard > .control-vector-card { order: 11; }
         .dashboard > .audit-log-card { order: 12; }
         .dashboard > .card-empty-slot { display: none; }
-        .card { background: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
+        .card { background: var(--bg-card); color: var(--text-main); padding: 15px; border-radius: 12px; border: 1px solid var(--border-main); box-shadow: var(--shadow-card); display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
         .card-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-        .card-controls-panel { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; text-align: center; }
+        .card-controls-panel { background: var(--bg-subtle); border: 1px solid var(--border-main); padding: 10px; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; text-align: center; }
         .developer-control { display: none; }
         .dashboard.developer-mode .developer-control { display: flex; }
         .dashboard.developer-mode .card-controls-panel { display: flex; }
         .btn-toggle { border: none; padding: 5px 14px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 0.75rem; }
         .btn-toggle.active { background: #22c55e; color: white; }
         .btn-toggle.inactive { background: #ef4444; color: white; }
-        .canvas { display: flex; background: #f8fafc; border-radius: 8px; height: 160px; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #cbd5e1; pointer-events: none; }
+        .canvas { display: flex; background: var(--bg-subtle); border-radius: 8px; height: 160px; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border-main); pointer-events: none; }
         svg { width: 100%; height: 100%; max-width: 90%; max-height: 90%; }
         .pipe-mini-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
-        .pipe-item { background: #ffffff; height: 70px; border-radius: 6px; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .pipe-item { background: var(--bg-card); height: 70px; border-radius: 6px; border: 1px solid var(--border-main); display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .water-layer { transition: none; }
         .status-badge-mini { padding: 6px; border-radius: 5px; text-align: center; font-weight: 700; font-size: 0.7rem; }
-        .card-current-status { color: #334155; font-size: 1rem; font-weight: 700; }
+        .card-current-status { color: var(--text-main); font-size: 1rem; font-weight: 700; }
         .dashboard-header { width: 100%; max-width: 1100px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-        .dashboard-header h2 { margin: 20px 0; color: #334155; }
-        .btn-developer { border: 1px solid #cbd5e1; background: #fff; color: #334155; padding: 8px 12px; border-radius: 8px; font-weight: 700; cursor: pointer; }
-        .priority-card { grid-column: span 3; border: 2px solid #2563eb; background: #eff6ff; }
-        .priority-title { color: #1e3a8a; font-size: 0.85rem; font-weight: 800; }
-        .priority-current { color: #1d4ed8; font-size: 1.35rem; font-weight: 800; }
+        .dashboard-header h2 { margin: 20px 0; color: var(--text-main); }
+        .btn-developer { border: 1px solid var(--border-main); background: var(--bg-card); color: var(--text-main); padding: 8px 12px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+        .priority-card { grid-column: span 3; border: 2px solid var(--accent); background: var(--accent-soft); }
+        .priority-title { color: var(--text-main); font-size: 0.85rem; font-weight: 800; }
+        .priority-current { color: var(--accent); font-size: 1.35rem; font-weight: 800; }
         .priority-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .priority-button { border: 1px solid #93c5fd; background: #fff; color: #1e40af; padding: 8px 12px; border-radius: 7px; cursor: pointer; font-weight: 700; }
-        .priority-button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+        .priority-button { border: 1px solid var(--border-main); background: var(--bg-card); color: var(--accent); padding: 8px 12px; border-radius: 7px; cursor: pointer; font-weight: 700; }
+        .priority-button.active { background: var(--accent-strong); color: #fff; border-color: var(--accent-strong); }
         input[type=range].scada-range { width: 100%; cursor: pointer; }
         .card.disabled-ui { opacity: 0.6; }
         .card.disabled-ui .canvas, .card.disabled-ui .card-controls-panel { pointer-events: none; filter: grayscale(1); }
@@ -166,8 +166,8 @@ export async function handleScadaRequest(config = {}) {
             font-size: 0.8rem; font-weight: 700; border: 2px solid transparent;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        .alarm-card.critical { background: #fee2e2; color: #991b1b; border-color: #ef4444; animation: blink-critical 1.5s infinite; }
-        .alarm-card.warning { background: #fef3c7; color: #92400e; border-color: #f59e0b; animation: blink-warning 2s infinite; }
+        .alarm-card.critical { background: var(--critical-soft); color: var(--critical-text); border-color: var(--alert); animation: blink-critical 1.5s infinite; }
+        .alarm-card.warning { background: var(--warning-soft); color: var(--warning-text); border-color: var(--warning); animation: blink-warning 2s infinite; }
         
         @keyframes blink-critical {
           0% { box-shadow: 0 0 0 #ef4444; }
@@ -179,66 +179,66 @@ export async function handleScadaRequest(config = {}) {
           50% { border-color: #b45309; }
           100% { border-color: #f59e0b; }
         }
-        .btn-ack { background: #334155; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; transition: 0.2s; }
-        .btn-ack:hover { background: #1e293b; }
+        .btn-ack { background: var(--nav-active-bg); color: var(--nav-active-text); border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; transition: 0.2s; }
+        .btn-ack:hover { background: var(--accent-strong); }
 
         /* --- VECTOR DE CONTROL --- */
-        .control-vector-card { grid-column: span 3; background: #ffffff; border: 2px solid #1e293b; padding: 20px; border-radius: 12px; }
+        .control-vector-card { grid-column: span 3; background: var(--bg-card); border: 2px solid var(--border-main); padding: 20px; border-radius: 12px; }
         .mode-selector { display: flex; gap: 10px; margin: 15px 0; }
-        .btn-mode { flex: 1; padding: 10px; border: 1px solid #cbd5e1; background: white; cursor: pointer; border-radius: 8px; font-weight: bold; font-size: 0.75rem; transition: 0.3s; }
-        .btn-mode.active { background: #1e293b; color: white; border-color: #1e293b; }
+        .btn-mode { flex: 1; padding: 10px; border: 1px solid var(--border-main); background: var(--bg-input); color: var(--text-main); cursor: pointer; border-radius: 8px; font-weight: bold; font-size: 0.75rem; transition: 0.3s; }
+        .btn-mode.active { background: var(--accent-strong); color: white; border-color: var(--accent-strong); }
         
         .setpoint-group { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; }
-        .setpoint-row { background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
-        .setpoint-header { display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: bold; color: #475569; margin-bottom: 5px; }
+        .setpoint-row { background: var(--bg-subtle); padding: 10px; border-radius: 8px; border: 1px solid var(--border-main); }
+        .setpoint-header { display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: bold; color: var(--text-muted); margin-bottom: 5px; }
         
         .estop-section { margin-top: 20px; padding-top: 15px; border-top: 1px dashed #cbd5e1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
         .estop-badge { flex: 1; padding: 10px; border-radius: 6px; font-weight: 800; font-size: 0.7rem; text-align: center; }
-        .estop-badge.inactive { background: #f1f5f9; color: #94a3b8; border: 1px solid #cbd5e1; }
-        .btn-sim-alarm { background: #fbbf24; color: #78350f; padding: 10px 15px; white-space: nowrap; }
-        .estop-badge.active { background: #fee2e2; color: #ef4444; border: 1px solid #ef4444; animation: blink-critical 1s infinite; }
+        .estop-badge.inactive { background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border-main); }
+        .btn-sim-alarm { background: var(--warning); color: var(--warning-text); padding: 10px 15px; white-space: nowrap; }
+        .estop-badge.active { background: var(--critical-soft); color: var(--alert); border: 1px solid var(--alert); animation: blink-critical 1s infinite; }
 
         /* --- PERFIL DE USUARIO --- */
-        .user-profile-card { position: fixed; top: 70px; right: 15px; background: white; padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 10px; z-index: 1000; }
-        .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: #1e293b; color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.7rem; }
+        .user-profile-card { position: fixed; top: 70px; right: 15px; background: var(--bg-card); color: var(--text-main); padding: 10px; border-radius: 12px; border: 1px solid var(--border-main); box-shadow: var(--shadow-card); display: flex; align-items: center; gap: 10px; z-index: 1000; }
+        .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-strong); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.7rem; }
         .user-info { display: flex; flex-direction: column; }
-        .user-name { font-size: 0.75rem; font-weight: 800; color: #1e293b; line-height: 1; }
-        .user-role { font-size: 0.55rem; color: #64748b; font-weight: bold; text-transform: uppercase; margin-top: 2px; }
-        .role-selector { font-size: 0.55rem; border: 1px solid #e2e8f0; border-radius: 4px; padding: 2px; margin-top: 4px; cursor: pointer; background: #f8fafc; }
+        .user-name { font-size: 0.75rem; font-weight: 800; color: var(--text-main); line-height: 1; }
+        .user-role { font-size: 0.55rem; color: var(--text-muted); font-weight: bold; text-transform: uppercase; margin-top: 2px; }
+        .role-selector { font-size: 0.55rem; border: 1px solid var(--border-main); border-radius: 4px; padding: 2px; margin-top: 4px; cursor: pointer; background: var(--bg-input); color: var(--text-main); }
 
         /* --- AUDIT LOG --- */
-        .audit-log-card { grid-column: span 3; background: #ffffff; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; }
+        .audit-log-card { grid-column: span 3; background: var(--bg-card); border: 1px solid var(--border-main); padding: 15px; border-radius: 12px; }
         .audit-log-list { list-style: none; padding: 0; margin: 10px 0 0 0; max-height: 120px; overflow-y: auto; }
-        .audit-log-list li { font-family: monospace; font-size: 0.65rem; color: #475569; padding: 4px 0; border-bottom: 1px dashed #f1f5f9; }
+        .audit-log-list li { font-family: monospace; font-size: 0.65rem; color: var(--text-muted); padding: 4px 0; border-bottom: 1px dashed var(--border-main); }
         .audit-log-list li:last-child { border-bottom: none; }
-        .audit-log-list li .ts { color: #94a3b8; font-weight: bold; margin-right: 5px; }
+        .audit-log-list li .ts { color: var(--text-muted); font-weight: bold; margin-right: 5px; }
 
         /* --- RBAC MASKING --- */
         .readonly-operador { position: relative; }
         .readonly-operador::after { 
-            content: "🔒"; position: absolute; top: 10px; right: 10px; font-size: 0.8rem; z-index: 20; background: #f8fafc; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; opacity: 0.8;
+            content: "🔒"; position: absolute; top: 10px; right: 10px; font-size: 0.8rem; z-index: 20; background: var(--bg-subtle); border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border-main); opacity: 0.8;
         }
         .readonly-operador input, .readonly-operador button:not(#btn-estop) { 
             pointer-events: none !important; opacity: 0.4 !important; filter: grayscale(1); 
         }
 
         /* --- DIAGNÓSTICO Y TELEMETRÍA --- */
-        .telemetry-card { grid-column: span 3; background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 15px; border-radius: 12px; }
+        .telemetry-card { grid-column: span 3; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-main); padding: 15px; border-radius: 12px; }
         .telemetry-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
-        .metric-box { background: #1e293b; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #334155; }
-        .metric-val { display: block; font-size: 1.1rem; font-weight: 800; color: #f8fafc; }
-        .metric-label { font-size: 0.6rem; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; }
-        .db-status { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; margin-top: 15px; padding-top: 10px; border-top: 1px solid #334155; }
+        .metric-box { background: var(--bg-subtle); padding: 10px; border-radius: 8px; text-align: center; border: 1px solid var(--border-main); }
+        .metric-val { display: block; font-size: 1.1rem; font-weight: 800; color: var(--text-main); }
+        .metric-label { font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; }
+        .db-status { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--border-main); }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
         .heartbeat { width: 12px; height: 12px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; animation: heartbeat-pulse 1s infinite; }
         @keyframes heartbeat-pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
 
         /* --- BALANCE DE MATERIA / OEE --- */
-        .oee-card { grid-column: span 3; background: #fdf2f8; border: 1px solid #fbcfe8; padding: 15px; border-radius: 12px; }
+        .oee-card { grid-column: span 3; background: var(--accent-soft); border: 1px solid var(--border-main); padding: 15px; border-radius: 12px; }
         .oee-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
-        .oee-box { background: #ffffff; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #f9a8d4; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .oee-val { display: block; font-size: 1.1rem; font-weight: 800; color: #be185d; }
-        .oee-label { font-size: 0.55rem; text-transform: uppercase; color: #db2777; letter-spacing: 0.5px; font-weight: bold; }
+        .oee-box { background: var(--bg-card); padding: 10px; border-radius: 8px; text-align: center; border: 1px solid var(--border-main); box-shadow: var(--shadow-card); }
+        .oee-val { display: block; font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+        .oee-label { font-size: 0.55rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; font-weight: bold; }
 
         @media (max-width: 760px) {
           .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -282,7 +282,7 @@ export async function handleScadaRequest(config = {}) {
         <!-- TARJETA DE REGISTRO DE CAMBIOS (AUDIT LOG) -->
         <div class="card audit-log-card">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <label style="color: #1e293b; font-size: 0.8rem; font-weight: 800;">REGISTRO DE CAMBIOS (AUDIT LOG)</label>
+            <label style="color: var(--text-main); font-size: 0.8rem; font-weight: 800;">REGISTRO DE CAMBIOS (AUDIT LOG)</label>
           </div>
           <ul id="audit-log-list" class="audit-log-list">
             <!-- Logs dinámicos -->
@@ -291,7 +291,7 @@ export async function handleScadaRequest(config = {}) {
 
         <!-- TARJETA DE VECTOR DE CONTROL -->
         <div class="card control-vector-card" id="control-vector">
-          <label style="color: #1e293b; font-size: 0.8rem; letter-spacing: 0.5px; font-weight: 800;">Vector de Control / Modos de Operación</label>
+          <label style="color: var(--text-main); font-size: 0.8rem; letter-spacing: 0.5px; font-weight: 800;">Vector de Control / Modos de Operación</label>
           <div class="mode-selector">
             <button id="mode-MANUAL" class="btn-mode active" onclick="setOpMode('MANUAL')">MANUAL</button>
             <button id="mode-AUTO" class="btn-mode" onclick="setOpMode('AUTO')">AUTOMÁTICO</button>
@@ -342,7 +342,7 @@ export async function handleScadaRequest(config = {}) {
              <div id="pipes-statusLabel" class="status-badge-mini" style="min-width: 100px;">FLUJO OK</div>
           </div>
         </div>
-        <div class="card developer-control" style="grid-column: span 2; background: #eff6ff; border: 2px solid #3b82f6;">
+        <div class="card developer-control" style="grid-column: span 2; background: var(--accent-soft); border: 2px solid var(--accent);">
           <label>Nivel Global: <span id="levelTxt">50</span>%</label>
             <input type="range" class="scada-range" id="levelSlider" min="0" max="100" value="50" oninput="handleSystemLevelInput()">
         </div>
@@ -350,9 +350,9 @@ export async function handleScadaRequest(config = {}) {
         <!-- BLOQUES DE DIAGNÓSTICO AL FINAL DEL DASHBOARD -->
         <div class="card telemetry-card">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <label style="color: #38bdf8; font-size: 0.8rem; font-weight: 800;">RED Y DIAGNÓSTICO DE TELEMETRÍA</label>
+            <label style="color: var(--text-main); font-size: 0.8rem; font-weight: 800;">RED Y DIAGNÓSTICO DE TELEMETRÍA</label>
             <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-size: 0.6rem; color: #94a3b8; font-weight: bold;">HEARTBEAT</span>
+              <span style="font-size: 0.6rem; color: var(--text-muted); font-weight: bold;">HEARTBEAT</span>
               <div class="heartbeat"></div>
             </div>
           </div>
@@ -365,13 +365,13 @@ export async function handleScadaRequest(config = {}) {
           <div class="db-status">
             <div class="status-dot"></div>
             <span>Firebase DB: <b style="color: #22c55e;">CONECTADO</b></span>
-            <span style="margin-left: auto; color: #94a3b8;">Sincronización: <span id="last-sync">hace 0s</span></span>
+            <span style="margin-left: auto; color: var(--text-muted);">Sincronización: <span id="last-sync">hace 0s</span></span>
           </div>
         </div>
 
         <div class="card oee-card">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <label style="color: #be185d; font-size: 0.8rem; font-weight: 800;">BALANCE DE MATERIA & EFICIENCIA (OEE)</label>
+            <label style="color: var(--text-main); font-size: 0.8rem; font-weight: 800;">BALANCE DE MATERIA & EFICIENCIA (OEE)</label>
           </div>
           <div class="oee-grid">
             <div class="oee-box"><span class="oee-val" id="oee-perc">94.2 <small style="font-size:0.5rem">%</small></span><span class="oee-label">OEE Global</span></div>

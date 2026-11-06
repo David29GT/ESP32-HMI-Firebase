@@ -126,9 +126,9 @@ export async function renderScadaSvg(config = {}) {
             margin: 0;
             padding: 0;
             min-height: 100vh;
-            background-color: #f1f5f9;
+            background-color: var(--bg-body);
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-            color: #1e293b;
+            color: var(--text-main);
             box-sizing: border-box;
         }
 
@@ -142,8 +142,8 @@ export async function renderScadaSvg(config = {}) {
         }
 
         .tarjeta-hmi {
-            background-color: #ffffff;
-            border: 1px solid #e2e8f0;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-main);
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.02), 0 10px 15px -3px rgba(0,0,0,0.05);
             padding: 20px;
@@ -161,23 +161,23 @@ export async function renderScadaSvg(config = {}) {
         h2 {
             margin-top: 0;
             margin-bottom: 5px;
-            color: #334155;
+            color: var(--text-main);
             font-size: 1.15rem;
             letter-spacing: 0.3px;
         }
         .subtitle {
             font-size: 0.75rem;
-            color: #64748b;
+            color: var(--text-muted);
             text-transform: uppercase;
             font-weight: 700;
             margin-bottom: 15px;
-            border-bottom: 2px solid #f1f5f9;
+            border-bottom: 2px solid var(--border-main);
             padding-bottom: 10px;
         }
 
         .control-card-item {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-main);
             padding: 12px;
             border-radius: 8px;
             display: flex;
@@ -197,24 +197,24 @@ export async function renderScadaSvg(config = {}) {
             gap: 6px;
         }
         .fault-simulation-button {
-            border: 1px solid #fecaca;
+            border: 1px solid var(--critical-soft);
             border-radius: 5px;
-            background: #fff;
-            color: #b91c1c;
+            background: var(--bg-card);
+            color: var(--critical-text);
             padding: 4px 8px;
             font-size: 0.65rem;
             font-weight: 800;
             cursor: pointer;
         }
         .fault-simulation-button.active {
-            background: #ef4444;
+            background: var(--alert);
             color: #fff;
         }
 
         .instrument-label {
             font-size: 0.75rem;
             font-weight: 800;
-            color: #475569;
+            color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -227,7 +227,7 @@ export async function renderScadaSvg(config = {}) {
 
         .control-label {
             font-size: 0.68rem;
-            color: #64748b;
+            color: var(--text-muted);
             font-weight: 700;
         }
 
@@ -247,12 +247,12 @@ export async function renderScadaSvg(config = {}) {
             letter-spacing: 0.5px;
         }
         .btn-toggle.active {
-            background: #22c55e;
+            background: var(--success);
             color: white;
             box-shadow: 0 2px 4px rgba(34,197,94,0.2);
         }
         .btn-toggle.inactive {
-            background: #ef4444;
+            background: var(--alert);
             color: white;
             box-shadow: 0 2px 4px rgba(239,68,68,0.2);
         }
@@ -275,14 +275,14 @@ export async function renderScadaSvg(config = {}) {
             margin: 0;
         }
         input[type=range].scada-range:focus { outline: none; }
-        input[type=range].scada-range::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; border-radius: 3px; background: #e2e8f0; }
-        input[type=range].scada-range::-moz-range-track { width: 100%; height: 6px; cursor: pointer; border-radius: 3px; background: #e2e8f0; }
+        input[type=range].scada-range::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; border-radius: 3px; background: var(--border-main); }
+        input[type=range].scada-range::-moz-range-track { width: 100%; height: 6px; cursor: pointer; border-radius: 3px; background: var(--border-main); }
         
-        input[type=range].scada-range::-webkit-slider-thumb { height: 14px; width: 14px; border-radius: 50%; background: #475569; cursor: pointer; -webkit-appearance: none; margin-top: -4px; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
-        input[type=range].scada-range::-moz-range-thumb { height: 14px; width: 14px; border: none; border-radius: 50%; background: #475569; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+        input[type=range].scada-range::-webkit-slider-thumb { height: 14px; width: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; -webkit-appearance: none; margin-top: -4px; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+        input[type=range].scada-range::-moz-range-thumb { height: 14px; width: 14px; border: none; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
 
         .control-card-item.disabled-ui {
-            border-color: #cbd5e1;
+            border-color: var(--border-main);
             opacity: 0.65;
         }
         .control-card-item.disabled-ui input[type=range] {
@@ -293,30 +293,30 @@ export async function renderScadaSvg(config = {}) {
             display: none !important;
         }
         .control-mode-button {
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--border-main);
             border-radius: 7px;
-            background: #fff;
-            color: #334155;
+            background: var(--bg-input);
+            color: var(--text-main);
             padding: 8px 10px;
             font-size: 0.72rem;
             font-weight: 700;
             cursor: pointer;
         }
         .priority-card {
-            background: #eff6ff;
-            border: 1px solid #bfdbfe;
+            background: var(--accent-soft);
+            border: 1px solid var(--accent);
             border-radius: 8px;
             padding: 12px;
             display: grid;
             gap: 8px;
         }
         .priority-title {
-            color: #1e3a8a;
+            color: var(--text-main);
             font-size: 0.78rem;
             font-weight: 800;
         }
         .priority-current {
-            color: #1d4ed8;
+            color: var(--accent);
             font-size: 1rem;
             font-weight: 800;
         }
@@ -326,50 +326,50 @@ export async function renderScadaSvg(config = {}) {
             gap: 6px;
         }
         .priority-button {
-            border: 1px solid #93c5fd;
+            border: 1px solid var(--border-main);
             border-radius: 6px;
-            background: #fff;
-            color: #1e40af;
+            background: var(--bg-card);
+            color: var(--accent);
             padding: 6px 10px;
             font-size: 0.7rem;
             font-weight: 700;
             cursor: pointer;
         }
         .priority-button.active {
-            border-color: #2563eb;
-            background: #2563eb;
-            color: #fff;
+            border-color: var(--accent-strong);
+            background: var(--accent-strong);
+            color: var(--on-accent);
         }
         .process-alert-status {
             border-radius: 6px;
-            background: #f1f5f9;
-            color: #475569;
+            background: var(--bg-subtle);
+            color: var(--text-main);
             padding: 8px;
             font-size: 0.7rem;
             font-weight: 800;
         }
         .process-alert-status.critical {
-            background: #fee2e2;
-            color: #991b1b;
+            background: var(--critical-soft);
+            color: var(--critical-text);
         }
         .process-alert-status.warning {
-            background: #fef3c7;
-            color: #92400e;
+            background: var(--warning-soft);
+            color: var(--warning-text);
         }
         .process-alert-details {
             max-height: 120px;
             overflow-y: auto;
             font-size: 0.68rem;
-            color: #475569;
+            color: var(--text-muted);
             line-height: 1.4;
         }
         .process-level-label rect {
-            fill: rgba(255, 255, 255, 0.86);
-            stroke: #cbd5e1;
+            fill: var(--bg-card);
+            stroke: var(--border-main);
             stroke-width: 1.5;
         }
         .process-level-label text {
-            fill: #0f172a;
+            fill: var(--text-main);
             font-family: Arial, sans-serif;
             font-weight: 800;
             text-anchor: middle;
@@ -390,9 +390,9 @@ export async function renderScadaSvg(config = {}) {
         .process-modal-dialog {
             width: min(100%, 420px);
             padding: 22px;
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--border-main);
             border-radius: 14px;
-            background: #fff;
+            background: var(--bg-card);
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
         }
         .process-modal-header {
@@ -404,14 +404,14 @@ export async function renderScadaSvg(config = {}) {
         }
         .process-modal-title {
             margin: 0;
-            color: #0f172a;
+            color: var(--text-main);
             font-size: 1.1rem;
         }
         .process-modal-close {
             border: 0;
             border-radius: 7px;
-            background: #e2e8f0;
-            color: #0f172a;
+            background: var(--bg-subtle);
+            color: var(--text-main);
             padding: 6px 10px;
             font-size: 1.1rem;
             font-weight: 800;
@@ -420,7 +420,7 @@ export async function renderScadaSvg(config = {}) {
         .process-modal-details {
             display: grid;
             gap: 10px;
-            color: #334155;
+            color: var(--text-main);
             font-size: 0.95rem;
         }
         .glow-blue {
@@ -436,7 +436,7 @@ export async function renderScadaSvg(config = {}) {
             display: flex;
             align-items: center;
             gap: 5px;
-            color: #475569;
+            color: var(--text-muted);
             font-size: 0.65rem;
             font-weight: 700;
         }
@@ -447,16 +447,16 @@ export async function renderScadaSvg(config = {}) {
         }
         .process-user-controls select {
             max-width: 100%;
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--border-main);
             border-radius: 7px;
-            background: #fff;
-            color: #334155;
+            background: var(--bg-input);
+            color: var(--text-main);
             padding: 7px;
             font-size: 0.7rem;
         }
 
         #tarjeta-visualizacion {
-            background-color: #ffffff;
+            background-color: var(--bg-card);
             display: flex;
             flex-direction: column;
             box-sizing: border-box;
@@ -597,9 +597,9 @@ export async function renderScadaSvg(config = {}) {
         firebase.initializeApp(firebaseConfig);
         const firebaseDatabase = firebase.database();
         const PROCESS_COLORS = {
-            blue: "#3b82f6",
-            red: "#ef4444",
-            yellow: "#fbbf24"
+            blue: getComputedStyle(document.documentElement).getPropertyValue("--flow-color").trim(),
+            red: getComputedStyle(document.documentElement).getPropertyValue("--alert").trim(),
+            yellow: getComputedStyle(document.documentElement).getPropertyValue("--warning").trim()
         };
         const USERS = {
             "op_01": { name: "Operador_01", role: "OPERADOR" },
@@ -619,6 +619,16 @@ export async function renderScadaSvg(config = {}) {
         let processLevelLabels = new Map();
         const processReadErrors = new Set();
         const pipeStates = { base: false, t2: false, t3: false };
+
+        document.addEventListener("hmi:themechange", () => {
+            PROCESS_COLORS.blue = getComputedStyle(document.documentElement)
+                .getPropertyValue("--flow-color").trim();
+            PROCESS_COLORS.red = getComputedStyle(document.documentElement)
+                .getPropertyValue("--alert").trim();
+            PROCESS_COLORS.yellow = getComputedStyle(document.documentElement)
+                .getPropertyValue("--warning").trim();
+            renderIndustrialState();
+        });
 
         function writeFirebase(path, value) {
             firebaseDatabase.ref(path).set(value).catch(error => {
@@ -1296,9 +1306,11 @@ export async function renderScadaSvg(config = {}) {
             if (sensorDisconnected[sensor]) {
                 slider.disabled = true;
                 textPct.textContent = "--";
-                textPct.style.color = "#64748b";
-                element.setAttribute("fill", "#64748b");
-                element.style.fill = "#64748b";
+                const mutedColor = getComputedStyle(document.documentElement)
+                    .getPropertyValue("--text-muted").trim();
+                textPct.style.color = mutedColor;
+                element.setAttribute("fill", mutedColor);
+                element.style.fill = mutedColor;
                 element.style.opacity = "0.5";
 
                 const clipRect = document.getElementById(config.clipId);
@@ -1310,8 +1322,9 @@ export async function renderScadaSvg(config = {}) {
                     clipRect.setAttribute("height", dimensions.height);
                 }
 
-                badge.style.backgroundColor = "#64748b";
-                badge.style.color = "#fff";
+                badge.style.backgroundColor = mutedColor;
+                badge.style.color = getComputedStyle(document.documentElement)
+                    .getPropertyValue("--bg-card").trim();
                 badge.textContent = config.nombre.toUpperCase() + ": SENSOR DESCONECTADO";
                 renderProcessIndicators();
                 updateProcessInfoModal();
