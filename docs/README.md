@@ -157,9 +157,12 @@ Sustituiremos las funciones `Blynk.virtualWrite()` y `BLYNK_WRITE()` por `Fireba
 | `V10` (Estado de Error) | Alarmas | `system_live/alarmas/alerta_X` | Object (Mensaje, Nivel) |
 | `V3` (Terminal de texto) | Log / Consola | `system_live/logs` (Lista) | String / Push |
 | `V4` (Boton Start/Stop) | Dashboard | `monitoreo/bomba` | Boolean |
-| `V5` (Boton Opciones) | Dashboard | `system_live/comandos/opciones` | Boolean / Int |
+| `V5` (Boton Opciones) | Dashboard | `system_live/comandos/opciones` | Int (1-11) |
+| Razón del último apagado | Dashboard / Opciones V5 | `system_live/razon_ultimo_apagado` | String |
 | `V54` (Control Válvula) | Dashboard | `system_live/comandos/valvula` | Int (0=Cerrar, 90=Abrir) |
 | *N/A* (Nuevo E-STOP) | Dashboard | `system_live/controles/estop` | Boolean |
+
+El menú V5 envía los comandos numerados del 1 al 11 como enteros a `system_live/comandos/opciones`. La LCD muestra el estado del proceso, mensajes de confirmación de comandos y, cuando la bomba se detiene, la razón leída desde `system_live/razon_ultimo_apagado`. Los eventos visibles en la terminal se registran con marca de tiempo en `system_live/logs`.
 
 ### 3. Estructura del Firmware Refactorizado
 

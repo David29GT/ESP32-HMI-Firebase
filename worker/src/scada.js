@@ -168,6 +168,54 @@ export async function handleScadaRequest(config = {}) {
         }
         .alarm-card.critical { background: var(--critical-soft); color: var(--critical-text); border-color: var(--alert); animation: blink-critical 1.5s infinite; }
         .alarm-card.warning { background: var(--warning-soft); color: var(--warning-text); border-color: var(--warning); animation: blink-warning 2s infinite; }
+        .dashboard-top-panels { width: 100%; max-width: 1100px; display: grid; gap: 12px; margin: 0 0 18px; }
+        .sensor-indicators { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+        .sensor-indicator { background: var(--bg-card); border: 1px solid var(--border-main); border-radius: 10px; padding: 12px 14px; box-shadow: var(--shadow-card); }
+        .sensor-indicator-label { display: block; color: var(--text-muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+        .sensor-indicator-value { display: block; margin-top: 5px; color: var(--text-main); font-size: 1.25rem; font-weight: 800; }
+        .lcd-panel { --lcd-bg: #164e63; --lcd-fg: #ffffff; background-color: var(--lcd-bg); color: var(--lcd-fg); border: 2px solid var(--border-main); border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow-card); opacity: 1; filter: none; }
+        .lcd-header, .terminal-header, .pump-control-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+        .lcd-title, .terminal-title, .pump-control-title { margin: 0; font-size: 0.85rem; font-weight: 800; }
+        .lcd-options { display: flex; gap: 8px; flex-wrap: wrap; }
+        .lcd-options[hidden] { display: none; }
+        .lcd-options label { display: inline-flex; gap: 5px; align-items: center; font-size: 0.68rem; font-weight: 700; }
+        .lcd-options select { border: 1px solid var(--border-main); border-radius: 5px; padding: 4px 6px; background: var(--bg-input); color: var(--text-main); }
+        .lcd-message { min-height: 54px; margin: 12px 0 0; display: flex; align-items: center; justify-content: flex-start; text-align: left; font-family: "Courier New", "Lucida Console", monospace; font-size: clamp(1rem, 2.5vw, 1.35rem); font-weight: 800; letter-spacing: 0.04em; overflow-wrap: anywhere; }
+        .lcd-panel[data-font="pixel"] .lcd-message { font-family: "Lucida Console", "Courier New", monospace; letter-spacing: 0.12em; text-transform: uppercase; }
+        .lcd-panel[data-font="terminal"] .lcd-message { font-family: Consolas, "Cascadia Mono", "Courier New", monospace; letter-spacing: 0.02em; }
+        .lcd-panel[data-font="digital"] .lcd-message { font-family: "Arial Narrow", Impact, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
+        .lcd-panel[data-font="sans"] .lcd-message { font-family: "Segoe UI", Arial, sans-serif; letter-spacing: 0.01em; }
+        .terminal-panel { background: #23272a; color: #dcddde; border: 1px solid #3f4347; border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow-card); }
+        .terminal-title { color: #ffffff; }
+        .terminal-indicator { width: 9px; height: 9px; border-radius: 50%; background: #43b581; box-shadow: 0 0 8px rgba(67, 181, 129, 0.65); }
+        .system-terminal { min-height: 95px; max-height: 180px; overflow-y: auto; margin: 10px 0 0; padding: 0; list-style: none; font: 0.76rem/1.6 Consolas, "Courier New", monospace; }
+        .system-terminal li { overflow-wrap: anywhere; }
+        .system-terminal .ts { color: #a3a6aa; }
+        .system-terminal .user { color: #43b581; font-weight: 700; }
+        .pump-control-card { background: var(--bg-card); color: var(--text-main); border: 2px solid var(--border-main); border-radius: 12px; padding: 16px; box-shadow: var(--shadow-card); }
+        .pump-control-actions { display: grid; grid-template-columns: minmax(0, 2fr) minmax(130px, 1fr); gap: 10px; margin-top: 12px; }
+        .pump-main-button, .pump-options-button { min-height: 54px; border: 0; border-radius: 9px; padding: 12px 16px; color: #fff; font-size: 0.95rem; font-weight: 900; cursor: pointer; }
+        .pump-main-button { background: #dc2626; }
+        .pump-main-button.on { background: #16a34a; }
+        .pump-main-button:disabled { cursor: not-allowed; opacity: 0.65; }
+        .pump-options-button { background: var(--accent-strong); color: var(--on-accent); }
+        .pump-current-state { margin: 10px 0 0; color: var(--text-muted); font-size: 0.78rem; font-weight: 700; }
+        .system-options-dialog { width: min(440px, calc(100% - 28px)); border: 1px solid var(--border-main); border-radius: 12px; padding: 20px; background: var(--bg-card); color: var(--text-main); box-shadow: var(--shadow-card); }
+        .system-options-dialog::backdrop { background: rgba(15, 23, 42, 0.65); }
+        .system-options-dialog[open] { max-height: min(85vh, 760px); overflow-y: auto; }
+        .system-options-dialog h2 { margin: 0; color: var(--text-main); }
+        .options-reason, .options-menu-text { font-family: Consolas, "Courier New", monospace; white-space: pre-wrap; }
+        .options-reason { margin: 16px 0; padding: 12px; border-radius: 7px; background: var(--bg-subtle); color: var(--text-main); font-size: 0.8rem; }
+        .options-reason strong { color: var(--text-muted); }
+        .options-menu-title { margin: 14px 0 8px; font-size: 0.9rem; }
+        .options-menu { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; font: 0.76rem/1.45 Consolas, "Courier New", monospace; }
+        .options-menu li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+        .option-quick-button { border: 1px solid var(--border-main); border-radius: 5px; padding: 4px 8px; background: var(--bg-subtle); color: var(--text-main); font-size: 0.68rem; font-weight: 800; cursor: pointer; }
+        .options-command-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 14px; }
+        .options-command-form input { min-width: 0; border: 1px solid var(--border-main); border-radius: 7px; padding: 9px; background: var(--bg-input); color: var(--text-main); }
+        .options-command-form button, .system-options-dialog .options-close { margin-top: 0; border: 0; border-radius: 7px; padding: 9px 14px; background: var(--accent-strong); color: var(--on-accent); font-weight: 800; cursor: pointer; }
+        .system-options-dialog .options-close { margin-top: 14px; }
+        .options-command-status { min-height: 1.2em; margin: 8px 0 0; color: var(--text-muted); font-size: 0.75rem; }
         
         @keyframes blink-critical {
           0% { box-shadow: 0 0 0 #ef4444; }
@@ -243,11 +291,15 @@ export async function handleScadaRequest(config = {}) {
         @media (max-width: 760px) {
           .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .priority-card, .control-vector-card, .audit-log-card, .telemetry-card, .oee-card { grid-column: span 2; }
+          .sensor-indicators { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 520px) {
           body { padding: 12px; }
           .dashboard { grid-template-columns: minmax(0, 1fr); gap: 10px; }
           .priority-card, .control-vector-card, .audit-log-card, .telemetry-card, .oee-card { grid-column: span 1; }
+          .sensor-indicators { gap: 8px; }
+          .pump-control-actions { grid-template-columns: 1fr; }
+          .lcd-header { align-items: flex-start; }
         }
 
       </style>
@@ -268,6 +320,106 @@ export async function handleScadaRequest(config = {}) {
         <button id="developer-mode-toggle" class="btn-developer" type="button" onclick="toggleDeveloperMode()" aria-expanded="false" hidden>⚙️ Modo Desarrollador</button>
       </div>
       <div id="alarms-list" class="alarms-section"></div>
+      <section class="dashboard-top-panels" aria-label="Resumen principal del sistema">
+        <div class="sensor-indicators" aria-label="Indicadores de sensores">
+          <div class="sensor-indicator"><span class="sensor-indicator-label">Nivel T1 · Depósito</span><strong class="sensor-indicator-value" id="top-level-sensor1">--%</strong></div>
+          <div class="sensor-indicator"><span class="sensor-indicator-label">Nivel T2</span><strong class="sensor-indicator-value" id="top-level-sensor2">--%</strong></div>
+          <div class="sensor-indicator"><span class="sensor-indicator-label">Nivel T3</span><strong class="sensor-indicator-value" id="top-level-sensor3">--%</strong></div>
+          <div class="sensor-indicator"><span class="sensor-indicator-label">Temperatura</span><strong class="sensor-indicator-value" id="top-temperature">--°C</strong></div>
+        </div>
+        <section class="lcd-panel" id="system-lcd" aria-live="polite">
+          <div class="lcd-header">
+            <h2 class="lcd-title">PANTALLA DE ESTADO</h2>
+            <div class="lcd-options" id="lcd-options" hidden>
+              <label for="lcd-background">Fondo
+                <select id="lcd-background" onchange="updateLcdAppearance()">
+                  <option value="#064e3b">Verde</option>
+                  <option value="#0f172a">Azul oscuro</option>
+                  <option value="#164e63" selected>Celeste oscuro</option>
+                  <option value="#d1fae5">Verde claro</option>
+                  <option value="#dbeafe">Azul claro</option>
+                  <option value="#cffafe">Celeste claro</option>
+                  <option value="#fef3c7">Ámbar claro</option>
+                  <option value="#f3f4f6">Gris claro</option>
+                  <option value="#ffffff">Blanco</option>
+                  <option value="#c0c0c0">Gris plateado</option>
+                  <option value="#ffff00">Amarillo puro</option>
+                  <option value="#00ffff">Cian brillante</option>
+                  <option value="#00ff00">Verde puro</option>
+                  <option value="#ff00ff">Magenta</option>
+                  <option value="#ff0000">Rojo puro</option>
+                  <option value="#0000ff">Azul puro</option>
+                  <option value="#1e3a8a">Azul marino profundo</option>
+                  <option value="#312e81">Índigo oscuro</option>
+                  <option value="#1d4ed8">Azul real iluminado</option>
+                  <option value="#3e8fd8">Celeste LCD Blynk</option>
+                  <option value="#22c55e">Verde ON/OFF de tarjetas</option>
+                </select>
+              </label>
+              <label for="lcd-text-color">Texto
+                <select id="lcd-text-color" onchange="updateLcdAppearance()">
+                  <option value="#ffffff" selected>Blanco</option>
+                  <option value="#000000">Negro</option>
+                </select>
+              </label>
+              <label for="lcd-font">Fuente
+                <select id="lcd-font" onchange="updateLcdAppearance()">
+                  <option value="mono" selected>Monoespaciada</option>
+                  <option value="pixel">Estilo píxel</option>
+                  <option value="terminal">Terminal (Consolas)</option>
+                  <option value="digital">Digital</option>
+                  <option value="sans">Sans serif</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <p class="lcd-message" id="lcd-message">Sistema Listo - Modo Automático</p>
+        </section>
+        <section class="terminal-panel" aria-label="Terminal de eventos">
+          <div class="terminal-header">
+            <h2 class="terminal-title">Terminal del sistema</h2>
+            <span class="terminal-indicator" aria-hidden="true"></span>
+          </div>
+          <ul class="system-terminal" id="system-terminal" aria-live="polite">
+            <li>Esperando eventos del sistema...</li>
+          </ul>
+        </section>
+        <section class="pump-control-card" aria-label="Control principal de bomba">
+          <div class="pump-control-header">
+            <h2 class="pump-control-title">Control principal</h2>
+          </div>
+          <div class="pump-control-actions">
+            <button type="button" class="pump-main-button" id="pump-main-toggle" onclick="toggleMainPump()" aria-pressed="false">ENCENDER BOMBA</button>
+            <button type="button" class="pump-options-button" onclick="openSystemOptions()">OPCIONES</button>
+          </div>
+          <p class="pump-current-state" id="pump-current-state" aria-live="polite">Estado de bomba: esperando Firebase...</p>
+        </section>
+      </section>
+      <dialog class="system-options-dialog" id="system-options-dialog" aria-labelledby="system-options-title">
+        <h2 id="system-options-title">Opciones del sistema · V5</h2>
+        <div class="options-reason">- Razón de último apagado:
+<strong id="last-shutdown-reason">Cargando desde Firebase...</strong></div>
+        <h3 class="options-menu-title">- Opciones de configuración</h3>
+        <ol class="options-menu">
+          <li><span>1) Abrir llave T1</span><button class="option-quick-button" type="button" onclick="sendSystemOption(1)">Enviar</button></li>
+          <li><span>2) Cerrar llave T1</span><button class="option-quick-button" type="button" onclick="sendSystemOption(2)">Enviar</button></li>
+          <li><span>3) Dar prioridad al llenado de T2</span><button class="option-quick-button" type="button" onclick="sendSystemOption(3)">Enviar</button></li>
+          <li><span>4) Dar prioridad al llenado de T3</span><button class="option-quick-button" type="button" onclick="sendSystemOption(4)">Enviar</button></li>
+          <li><span>5) Llenado de T2 y T3 intercalado</span><button class="option-quick-button" type="button" onclick="sendSystemOption(5)">Enviar</button></li>
+          <li><span>6) Activar modo automatico</span><button class="option-quick-button" type="button" onclick="sendSystemOption(6)">Enviar</button></li>
+          <li><span>7) Desactivar modo automatico</span><button class="option-quick-button" type="button" onclick="sendSystemOption(7)">Enviar</button></li>
+          <li><span>8) Quitar tiempo de espera</span><button class="option-quick-button" type="button" onclick="sendSystemOption(8)">Enviar</button></li>
+          <li><span>9) Cambiar tiempo de deteccion a 20 minutos</span><button class="option-quick-button" type="button" onclick="sendSystemOption(9)">Enviar</button></li>
+          <li><span>10) Habilitar envio de datos de distancia del sensor</span><button class="option-quick-button" type="button" onclick="sendSystemOption(10)">Enviar</button></li>
+          <li><span>11) Deshabilitar envio de datos de distancia del sensor</span><button class="option-quick-button" type="button" onclick="sendSystemOption(11)">Enviar</button></li>
+        </ol>
+        <form class="options-command-form" id="options-command-form" onsubmit="submitSystemOption(event)">
+          <input id="options-command-input" type="number" min="1" max="11" step="1" inputmode="numeric" placeholder="Número de opción (1-11)" aria-label="Número de opción">
+          <button type="submit" id="options-submit-button">Enviar</button>
+        </form>
+        <p class="options-command-status" id="options-command-status" aria-live="polite"></p>
+        <button class="options-close" type="button" onclick="closeSystemOptions()">Cerrar</button>
+      </dialog>
       <div class="dashboard">
         <div class="card priority-card">
           <div class="priority-title">Prioridad de Llenado</div>
@@ -425,6 +577,33 @@ export async function handleScadaRequest(config = {}) {
         const tankClipDimensions = {};
         let activeAlarms = [];
         let developerMode = false;
+        let pumpCommandPending = false;
+        let pumpStateKnown = false;
+        let pumpControlError = "";
+        let fillingPriority = 1;
+        let interleavedDestination = 2;
+        let lastShutdownReason = "Ninguna";
+        let shutdownReasonKnown = false;
+        let externalLcdMessage = "";
+        let transientLcdMessage = "";
+        let transientLcdTimer = null;
+        let pumpStartUntil = 0;
+        let lastProcessStatusMessage = null;
+        const defaultLcdMessage = "Sistema Listo - Modo Automático";
+        const optionMessages = {
+          1: "Abriendo llave de agua T1",
+          2: "Cerrando llave de agua T1",
+          3: "La prioridad sera llenar T2",
+          4: "La prioridad sera llenar T3",
+          5: "El llenado de T2 y T3 sera intercalado",
+          6: "Activando modo automatico",
+          7: "Desactivando modo automatico",
+          8: "Quitando tiempo de espera",
+          9: "Cambiando tiempo de deteccion a 20 minutos",
+          10: "Habilitando envio de datos de distancia del sensor",
+          11: "Deshabilitando envio de datos de distancia del sensor"
+        };
+        const shutdownReasonPath = "system_live/razon_ultimo_apagado";
         const fillingPriorityNames = {
           1: "Intercalado",
           2: "Tanque 2",
@@ -450,6 +629,202 @@ export async function handleScadaRequest(config = {}) {
             button.classList.toggle("active", isSelected);
             button.setAttribute("aria-pressed", String(isSelected));
           });
+          fillingPriority = Object.prototype.hasOwnProperty.call(fillingPriorityNames, priority)
+            ? priority
+            : 1;
+          updateSystemMessage();
+        }
+
+        function updatePumpControl() {
+          const button = document.getElementById("pump-main-toggle");
+          const isOn = Boolean(cardStates[6]);
+          button.classList.toggle("on", isOn);
+          button.textContent = pumpStateKnown
+            ? (isOn ? "APAGAR BOMBA" : "ENCENDER BOMBA")
+            : "CARGANDO BOMBA...";
+          button.setAttribute("aria-pressed", String(isOn));
+          button.disabled = !pumpStateKnown || pumpCommandPending ||
+            (currentUser && currentUser.role === "OPERADOR") ||
+            (estopActive && !isOn);
+          document.getElementById("pump-current-state").textContent = pumpControlError ||
+            (estopActive && !isOn
+              ? "E-STOP activo: no se puede encender la bomba."
+              : "Estado de bomba: " + (isOn ? "Encendida" : "Apagada"));
+        }
+
+        async function toggleMainPump() {
+          if (!currentUser || currentUser.role === "OPERADOR" || !pumpStateKnown || pumpCommandPending) return;
+          const nextState = !cardStates[6];
+          if (nextState && estopActive) {
+            updatePumpControl();
+            return;
+          }
+
+          pumpControlError = "";
+          pumpCommandPending = true;
+          updatePumpControl();
+          try {
+            await firebaseDatabase.ref("monitoreo/bomba").set(nextState);
+            addLogEntry(currentUser.name, nextState ? "encendió la bomba." : "apagó la bomba.");
+          } catch (error) {
+            console.error("No se pudo cambiar el estado de la bomba desde el panel principal.", error);
+            pumpControlError = "Error al cambiar la bomba. Revisa conexión y permisos de Firebase.";
+          } finally {
+            pumpCommandPending = false;
+            updatePumpControl();
+          }
+        }
+
+        function openSystemOptions() {
+          document.getElementById("options-command-status").textContent =
+            currentUser && currentUser.role === "ADMINISTRADOR" ? "" : "Solo el Administrador puede enviar comandos.";
+          document.getElementById("system-options-dialog").showModal();
+        }
+
+        function closeSystemOptions() {
+          document.getElementById("system-options-dialog").close();
+        }
+
+        function updateLcdAppearance() {
+          const panel = document.getElementById("system-lcd");
+          if (!currentUser || currentUser.role !== "ADMINISTRADOR") return;
+          const background = document.getElementById("lcd-background").value;
+          const textColor = document.getElementById("lcd-text-color").value;
+          const font = document.getElementById("lcd-font").value;
+          panel.style.backgroundColor = background;
+          panel.style.setProperty("--lcd-bg", background);
+          panel.style.setProperty("--lcd-fg", textColor);
+          panel.dataset.font = font;
+
+          try {
+            localStorage.setItem("hmi-lcd-appearance", JSON.stringify({ background, textColor, font }));
+          } catch (error) {
+            console.warn("No se pudo guardar la apariencia de la pantalla LCD.", error);
+          }
+        }
+
+        function loadLcdAppearance() {
+          try {
+            const saved = JSON.parse(localStorage.getItem("hmi-lcd-appearance") || "null");
+            const backgrounds = [
+              "#064e3b", "#0f172a", "#164e63", "#d1fae5", "#dbeafe", "#cffafe", "#fef3c7", "#f3f4f6",
+              "#ffffff", "#c0c0c0", "#ffff00", "#00ffff", "#00ff00", "#ff00ff", "#ff0000", "#0000ff",
+              "#1e3a8a", "#312e81", "#1d4ed8", "#3e8fd8", "#22c55e"
+            ];
+            if (saved && backgrounds.includes(saved.background)) {
+              document.getElementById("lcd-background").value = saved.background;
+            }
+            if (saved && ["#ffffff", "#000000"].includes(saved.textColor)) {
+              document.getElementById("lcd-text-color").value = saved.textColor;
+            }
+            if (saved && ["mono", "pixel", "terminal", "digital", "sans"].includes(saved.font)) {
+              document.getElementById("lcd-font").value = saved.font;
+            }
+          } catch (error) {
+            console.warn("No se pudo recuperar la apariencia guardada de la pantalla LCD.", error);
+          }
+          updateLcdAppearance();
+        }
+
+        function renderLcdMessage(value) {
+          let message = value;
+          if (value && typeof value === "object") {
+            message = value.message ?? value.mensaje ?? value.text ?? value.estado;
+          }
+          externalLcdMessage = message === null || message === undefined ? "" : String(message).trim();
+          updateSystemMessage();
+        }
+
+        function getSystemStatusMessage() {
+          const tank1Level = tankLevels.sensor1;
+          if (typeof tank1Level === "number" && tank1Level < 10) {
+            return "El deposito esta a menos del 15%. Se suspende el llenado";
+          }
+          if (typeof tank1Level === "number" && tank1Level < 15) {
+            return "Advertencia! Bajo nivel en T1";
+          }
+          if (typeof tank1Level === "number" && tank1Level >= 99.5) {
+            return "El deposito T1 esta lleno. Cerrando llave..";
+          }
+          if (pumpStateKnown && cardStates[6]) {
+            if (Date.now() < pumpStartUntil) return "* Arranque de bomba de agua";
+            const destination = fillingPriority === 2 ? 2 :
+              fillingPriority === 3 ? 3 : interleavedDestination;
+            return "Llenando deposito " + destination;
+          }
+          if (pumpStateKnown && !cardStates[6]) return "Entrando en modo espera";
+          return externalLcdMessage || defaultLcdMessage;
+        }
+
+        function updateSystemMessage() {
+          const statusMessage = getSystemStatusMessage();
+          document.getElementById("lcd-message").textContent =
+            transientLcdMessage || statusMessage;
+
+          if (lastProcessStatusMessage !== null && statusMessage !== lastProcessStatusMessage) {
+            addLogEntry("Sistema", statusMessage);
+          }
+          lastProcessStatusMessage = statusMessage;
+        }
+
+        function showOptionMessage(message) {
+          transientLcdMessage = message;
+          clearTimeout(transientLcdTimer);
+          updateSystemMessage();
+          transientLcdTimer = setTimeout(() => {
+            transientLcdMessage = "";
+            updateSystemMessage();
+          }, 5000);
+        }
+
+        async function sendSystemOption(option) {
+          if (!currentUser || currentUser.role !== "ADMINISTRADOR") {
+            document.getElementById("options-command-status").textContent =
+              "Solo el Administrador puede enviar comandos.";
+            return;
+          }
+          if (!Number.isInteger(option) || !Object.prototype.hasOwnProperty.call(optionMessages, option)) {
+            document.getElementById("options-command-status").textContent =
+              "Ingresa una opción válida entre 1 y 11.";
+            return;
+          }
+
+          const status = document.getElementById("options-command-status");
+          const submitButton = document.getElementById("options-submit-button");
+          status.textContent = "Enviando comando " + option + "...";
+          submitButton.disabled = true;
+          document.querySelectorAll(".option-quick-button").forEach(button => {
+            button.disabled = true;
+          });
+          try {
+            await firebaseDatabase.ref("system_live/comandos/opciones").set(option);
+            const message = optionMessages[option];
+            showOptionMessage(message);
+            addLogEntry(currentUser.name, message);
+            status.textContent = "Comando " + option + " enviado.";
+            document.getElementById("options-command-input").value = "";
+          } catch (error) {
+            console.error("No se pudo enviar la opción " + option + " a Firebase.", error);
+            status.textContent = "Error al enviar. Revisa conexión y permisos de Firebase.";
+          } finally {
+            submitButton.disabled = currentUser.role !== "ADMINISTRADOR";
+            document.querySelectorAll(".option-quick-button").forEach(button => {
+              button.disabled = currentUser.role !== "ADMINISTRADOR";
+            });
+          }
+        }
+
+        function submitSystemOption(event) {
+          event.preventDefault();
+          const input = document.getElementById("options-command-input");
+          const option = Number(input.value);
+          if (!input.value.trim() || !Number.isInteger(option)) {
+            document.getElementById("options-command-status").textContent =
+              "Ingresa un número entero entre 1 y 11.";
+            input.focus();
+            return;
+          }
+          sendSystemOption(option);
         }
 
         function setFillingPriority(value) {
@@ -485,6 +860,8 @@ export async function handleScadaRequest(config = {}) {
           const level = Math.max(0, Math.min(100, Number(value)));
           if (!Number.isFinite(level)) return;
           tankLevels[sensor] = level;
+          document.getElementById("top-level-" + sensor).textContent = level.toFixed(1) + "%";
+          updateSystemMessage();
 
           const cardIdx = sensorCardMap[sensor];
           if (!Number.isInteger(cardIdx) || !cardSensorMap[cardIdx]) {
@@ -510,7 +887,21 @@ export async function handleScadaRequest(config = {}) {
         }
 
         function applyCardState(idx, isOn) {
+          const previousPumpState = cardStates[6];
+          const pumpWasKnown = pumpStateKnown;
           cardStates[idx] = isOn;
+          if (idx === 6) {
+            pumpStateKnown = true;
+            pumpControlError = "";
+            if (pumpWasKnown && previousPumpState !== isOn) {
+              pumpStartUntil = isOn ? Date.now() + 2500 : 0;
+              if (isOn) {
+                setTimeout(() => {
+                  if (pumpStateKnown && cardStates[6]) updateSystemMessage();
+                }, 2500);
+              }
+            }
+          }
           const button = document.getElementById("toggle-" + idx);
           const container = document.getElementById("card-container-" + idx);
           button.innerText = isOn ? "ON" : "OFF";
@@ -518,6 +909,10 @@ export async function handleScadaRequest(config = {}) {
           container.classList.toggle("disabled-ui", !isOn);
           updateCardColor(idx);
           updateCardSummary(idx);
+          if (idx === 6) {
+            updatePumpControl();
+            updateSystemMessage();
+          }
         }
 
         function setupFirebaseListeners() {
@@ -535,10 +930,57 @@ export async function handleScadaRequest(config = {}) {
             }, error => console.error("Error leyendo monitoreo/" + sensor, error));
           });
 
+          firebaseDatabase.ref("monitoreo/temp").on("value", snapshot => {
+            if (snapshot.val() === null) return;
+            const temperature = Number(snapshot.val());
+            if (!Number.isFinite(temperature)) {
+              console.error("Valor de temperatura no válido recibido desde monitoreo/temp", snapshot.val());
+              return;
+            }
+            document.getElementById("top-temperature").textContent = temperature.toFixed(1) + "°C";
+          }, error => console.error("Error leyendo monitoreo/temp", error));
+
+          firebaseDatabase.ref("system_live/lcd_message").on("value", snapshot => {
+            renderLcdMessage(snapshot.val());
+          }, error => {
+            console.error("Error leyendo system_live/lcd_message", error);
+            document.getElementById("lcd-message").textContent =
+              "Error al cargar el mensaje de estado desde Firebase.";
+          });
+
+          firebaseDatabase.ref(shutdownReasonPath).on("value", snapshot => {
+            const value = snapshot.val();
+            let reason = value;
+            if (value && typeof value === "object") {
+              reason = value.razon ?? value.mensaje ?? value.message ?? value.motivo;
+            }
+            const normalizedReason = reason === null || reason === undefined
+              ? "Ninguna"
+              : String(reason).trim() || "Ninguna";
+            document.getElementById("last-shutdown-reason").textContent = normalizedReason;
+            if (shutdownReasonKnown && normalizedReason !== lastShutdownReason) {
+              addLogEntry("Sistema", "Razón de último apagado: " + normalizedReason);
+            }
+            lastShutdownReason = normalizedReason;
+            shutdownReasonKnown = true;
+          }, error => {
+            console.error("Error leyendo " + shutdownReasonPath, error);
+            document.getElementById("last-shutdown-reason").textContent =
+              "No fue posible leer la razón desde Firebase.";
+          });
+
+          firebaseDatabase.ref("system_live/controles/valvula").on("value", snapshot => {
+            if (snapshot.val() === null) return;
+            interleavedDestination = parseFirebaseState(snapshot.val()) ? 2 : 3;
+            updateSystemMessage();
+          }, error => console.error("Error leyendo system_live/controles/valvula", error));
+
           Object.entries(cardStatePaths).forEach(([cardIdxText, path]) => {
             const cardIdx = Number(cardIdxText);
             firebaseDatabase.ref(path).on("value", snapshot => {
-              if (snapshot.val() !== null) applyCardState(cardIdx, parseFirebaseState(snapshot.val()));
+              if (snapshot.val() !== null || cardIdx === 6) {
+                applyCardState(cardIdx, parseFirebaseState(snapshot.val()));
+              }
             }, error => console.error("Error leyendo " + path, error));
           });
 
@@ -611,7 +1053,9 @@ export async function handleScadaRequest(config = {}) {
                 const entry = child.val();
                 if (entry && typeof entry === "object") logs.push(entry);
               });
-              renderAuditLog(logs.reverse());
+              const newestFirst = logs.reverse();
+              renderAuditLog(newestFirst);
+              renderSystemTerminal(newestFirst.slice(0, 5));
             }, error => {
               console.error("Error leyendo el Audit Log de Firebase", error);
               const list = document.getElementById("audit-log-list");
@@ -619,6 +1063,11 @@ export async function handleScadaRequest(config = {}) {
               const item = document.createElement("li");
               item.textContent = "No fue posible cargar el registro de auditoría.";
               list.appendChild(item);
+              const terminal = document.getElementById("system-terminal");
+              terminal.replaceChildren();
+              const terminalItem = document.createElement("li");
+              terminalItem.textContent = "No fue posible cargar los logs desde Firebase.";
+              terminal.appendChild(terminalItem);
             });
         }
 
@@ -639,6 +1088,7 @@ export async function handleScadaRequest(config = {}) {
           const isAdmin = currentUser.role === 'ADMINISTRADOR';
           document.getElementById('developer-mode-toggle').hidden = !isAdmin;
           document.getElementById('filling-priority-actions').hidden = !isAdmin;
+          document.getElementById('lcd-options').hidden = !isAdmin;
           if (!isAdmin && developerMode) {
             developerMode = false;
             document.querySelector('.dashboard').classList.remove('developer-mode');
@@ -657,6 +1107,15 @@ export async function handleScadaRequest(config = {}) {
           document.querySelector('.mode-selector').classList.toggle('readonly-operador', isOp || isSupervisor);
           document.getElementById('reset-estop-control').classList.toggle('readonly-operador', isOp || isSupervisor);
           document.getElementById('simulate-alarm-control').hidden = !currentUser || currentUser.role !== 'ADMINISTRADOR';
+          document.getElementById("options-command-input").disabled = !isAdmin;
+          document.getElementById("options-submit-button").disabled = !isAdmin;
+          document.querySelectorAll(".option-quick-button").forEach(button => {
+            button.disabled = !isAdmin;
+          });
+          document.getElementById("options-command-status").textContent = isAdmin
+            ? ""
+            : "Solo el Administrador puede enviar comandos.";
+          updatePumpControl();
         }
 
         function switchUser(uid) {
@@ -696,6 +1155,38 @@ export async function handleScadaRequest(config = {}) {
             const user = document.createElement("b");
             user.textContent = String(entry.user || "Sistema");
             item.append(time, user, document.createTextNode(" " + String(entry.action || "")));
+            fragment.appendChild(item);
+          });
+          list.replaceChildren(fragment);
+        }
+
+        function renderSystemTerminal(entries) {
+          const list = document.getElementById("system-terminal");
+          if (!entries.length) {
+            const empty = document.createElement("li");
+            empty.textContent = "Sin eventos registrados.";
+            list.replaceChildren(empty);
+            return;
+          }
+
+          const fragment = document.createDocumentFragment();
+          entries.slice().reverse().forEach(entry => {
+            const item = document.createElement("li");
+            const timestamp = entry.timestamp ?? entry.ts ?? entry.hora;
+            const date = typeof timestamp === "number"
+              ? new Date(timestamp)
+              : new Date(String(timestamp || ""));
+            const time = document.createElement("span");
+            time.className = "ts";
+            time.textContent = "[" + (
+              Number.isNaN(date.getTime())
+                ? "hora no disponible"
+                : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+            ) + "] ";
+            const user = document.createElement("span");
+            user.className = "user";
+            user.textContent = String(entry.user || "Sistema");
+            item.append(time, user, document.createTextNode(" " + String(entry.action || entry.message || entry.mensaje || "")));
             fragment.appendChild(item);
           });
           list.replaceChildren(fragment);
@@ -756,6 +1247,7 @@ export async function handleScadaRequest(config = {}) {
             document.getElementById("card-container-pipes")
               .classList.toggle("disabled-ui", !pipesState);
           }
+          updatePumpControl();
         }
 
         function triggerEStop() {
@@ -827,6 +1319,7 @@ export async function handleScadaRequest(config = {}) {
           });
           activeAlarms = alarms.map(({ alarm }) => alarm);
           updateCardColor(7);
+          updateSystemMessage();
 
           if (alarms.length === 0) {
             container.textContent = "✅ No hay alarmas activas en el sistema";
@@ -1085,6 +1578,7 @@ export async function handleScadaRequest(config = {}) {
         window.onload = () => {
           addLogEntry('Sistema', 'HMI SCADA iniciado.');
           applyRBAC();
+          loadLcdAppearance();
           Object.values(sensorCardMap).forEach(cardIdx => {
             const waterLayer = document.querySelector("#card-container-" + cardIdx + " .water-layer");
             if (!waterLayer) {
