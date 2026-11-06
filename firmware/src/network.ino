@@ -34,45 +34,69 @@ void mantenerConexionWiFi() {
 void iniciarFirebase() {
   firebaseConfig.database_url = String("https://") + FIREBASE_HOST + "/";
   firebaseConfig.signer.tokens.legacy_token = FIREBASE_AUTH;
+  firebaseConfig.timeout.socketConnection = 2000;
+  firebaseConfig.timeout.serverResponse = 2000;
 
   Firebase.begin(&firebaseConfig, &firebaseAuth);
   Firebase.reconnectWiFi(true);
   Serial.println("Cliente Firebase inicializado.");
 }
 
-bool enviarLecturasFirebase(float sensor1, float sensor2, float sensor3, float temperatura) {
-  if (WiFi.status() != WL_CONNECTED || !Firebase.ready()) {
-    Serial.println("Firebase no está listo; lecturas no enviadas.");
+bool firebaseDisponibleParaEnvio(const char *ruta) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.printf("WiFi desconectado; se omite %s.\n", ruta);
+    return false;
+  }
+  if (!Firebase.ready()) {
+    Serial.printf("Firebase no está listo; se omite %s.\n", ruta);
+    return false;
+  }
+  return true;
+}
+
+bool enviarFloatFirebaseAsync(const char *ruta, float valor) {
+  if (!firebaseDisponibleParaEnvio(ruta)) {
+    return false;
+  }
+  if (!Firebase.setFloatAsync(firebaseData, ruta, valor)) {
+    Serial.printf("Error en %s: %s\n", ruta, firebaseData.errorReason().c_str());
+    return false;
+  }
+  return true;
+}
+
+bool enviarBoolFirebaseAsync(const char *ruta, bool valor) {
+  if (!firebaseDisponibleParaEnvio(ruta)) {
+    return false;
+  }
+  if (!Firebase.setBoolAsync(firebaseData, ruta, valor)) {
+    Serial.printf("Error en %s: %s\n", ruta, firebaseData.errorReason().c_str());
+    return false;
+  }
+  return true;
+}
+
+bool enviarLecturasFirebase(
+    float sensor1,
+    float sensor2,
+    float sensor3,
+    float temperatura,
+    bool flotadorBajo,
+    bool flotadorAlto
+) {
+  if (!firebaseDisponibleParaEnvio("/monitoreo")) {
     return false;
   }
 
   bool correcto = true;
-  correcto &= Firebase.setFloat(firebaseData, "/monitoreo/sensor1", sensor1);
-  if (!correcto) {
-    Serial.printf("Error en sensor1: %s\n", firebaseData.errorReason().c_str());
-  }
-
-  const bool sensor2Correcto =
-      Firebase.setFloat(firebaseData, "/monitoreo/sensor2", sensor2);
-  correcto &= sensor2Correcto;
-  if (!sensor2Correcto) {
-    Serial.printf("Error en sensor2: %s\n", firebaseData.errorReason().c_str());
-  }
-
-  const bool sensor3Correcto =
-      Firebase.setFloat(firebaseData, "/monitoreo/sensor3", sensor3);
-  correcto &= sensor3Correcto;
-  if (!sensor3Correcto) {
-    Serial.printf("Error en sensor3: %s\n", firebaseData.errorReason().c_str());
-  }
+  correcto &= enviarFloatFirebaseAsync("/monitoreo/sensor1", sensor1);
+  correcto &= enviarFloatFirebaseAsync("/monitoreo/sensor2", sensor2);
+  correcto &= enviarFloatFirebaseAsync("/monitoreo/sensor3", sensor3);
+  correcto &= enviarBoolFirebaseAsync("/monitoreo/flotador_bajo", flotadorBajo);
+  correcto &= enviarBoolFirebaseAsync("/monitoreo/flotador_alto", flotadorAlto);
 
   if (!isnan(temperatura)) {
-    const bool temperaturaCorrecta =
-        Firebase.setFloat(firebaseData, "/monitoreo/temp", temperatura);
-    correcto &= temperaturaCorrecta;
-    if (!temperaturaCorrecta) {
-      Serial.printf("Error en temp: %s\n", firebaseData.errorReason().c_str());
-    }
+    correcto &= enviarFloatFirebaseAsync("/monitoreo/temp", temperatura);
   }
 
   return correcto;

@@ -423,6 +423,7 @@ export async function handleScadaRequest(config = {}) {
         const firebaseDatabase = firebase.database();
         const tankLevels = {};
         const tankClipDimensions = {};
+        let activeAlarms = [];
         let developerMode = false;
         const fillingPriorityNames = {
           1: "Intercalado",
@@ -734,6 +735,7 @@ export async function handleScadaRequest(config = {}) {
 
         function applyEStopState(active) {
           estopActive = active;
+          updateCardColor(7);
           const indicator = document.getElementById('estop-indicator');
           indicator.innerText = active
             ? "🛑 PARADA DE EMERGENCIA ACTIVA"
@@ -823,6 +825,8 @@ export async function handleScadaRequest(config = {}) {
             const alarm = child.val();
             if (alarm && typeof alarm === "object") alarms.push({ id: child.key, alarm });
           });
+          activeAlarms = alarms.map(({ alarm }) => alarm);
+          updateCardColor(7);
 
           if (alarms.length === 0) {
             container.textContent = "✅ No hay alarmas activas en el sistema";
@@ -960,6 +964,42 @@ export async function handleScadaRequest(config = {}) {
           const isTank = Boolean(cardSensorMap[idx]);
           const paintLayer = container.querySelector('.paint-layer, .paint-custom');
 
+          if (idx === 7) {
+            const badge = document.getElementById("card-statusLabel-" + idx);
+            const processAlarms = activeAlarms.filter(alarm => alarm.tipo !== "sensor");
+            const alarmSeverity = alarm => {
+              const level = String(alarm.nivel || alarm.severity || alarm.tipo || "warning").toLowerCase();
+              if (level.includes("critic") || level.includes("high")) return "critical";
+              if (level.includes("info")) return "info";
+              return "warning";
+            };
+            const hasCriticalAlarm = processAlarms.some(alarm => alarmSeverity(alarm) === "critical");
+            const hasWarningAlarm = processAlarms.some(alarm => alarmSeverity(alarm) === "warning");
+            const color = estopActive || hasCriticalAlarm
+              ? "#ef4444"
+              : hasWarningAlarm
+                ? "#fbbf24"
+                : cardStates[idx]
+                  ? "#3b82f6"
+                  : null;
+
+            paintLayer.setAttribute("fill", color || "transparent");
+            paintLayer.style.opacity = color ? "0.8" : "0";
+            paintLayer.style.filter = color
+              ? "drop-shadow(0 0 6px " + color + ")"
+              : "none";
+            badge.style.backgroundColor = color || "#e2e8f0";
+            badge.style.color = color === "#fbbf24" ? "#1e293b" : color ? "#fff" : "#475569";
+            badge.innerText = estopActive || hasCriticalAlarm
+              ? "FALLA CRÍTICA"
+              : hasWarningAlarm
+                ? "ADVERTENCIA"
+                : cardStates[idx]
+                  ? "FLUJO ACTIVO"
+                  : "EN REPOSO";
+            return;
+          }
+
           if (isTank) {
             document.getElementById("card-colorTxt-" + idx).innerText =
               value.toFixed(1).replace(/\.0$/, "");
@@ -1064,6 +1104,7 @@ export async function handleScadaRequest(config = {}) {
               console.error("No se pudieron inicializar las dimensiones del agua en la tarjeta " + cardIdx + ".", error);
             }
           });
+          applyCardState(7, false);
           updateSystemLevel(); 
           updatePipesColor(); 
           updateTelemetry(); 
