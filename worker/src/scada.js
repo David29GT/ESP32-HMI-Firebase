@@ -13,7 +13,8 @@ export async function handleScadaRequest(config = {}) {
         pintadoIndependiente: false,
         colorFijoestatico: "#64748b",
         animarNivel: true,
-        idAguaOriginal: "aguaT2"
+        idAguaOriginal: "aguaT2",
+        sensor: "sensor3"
       },
       { vacio: true },
       {
@@ -22,7 +23,8 @@ export async function handleScadaRequest(config = {}) {
         pintadoIndependiente: false,
         colorFijoestatico: "#64748b",
         animarNivel: true,
-        idAguaOriginal: "aguaT2"
+        idAguaOriginal: "aguaT2",
+        sensor: "sensor2"
       },
       { vacio: true },
       {
@@ -31,7 +33,8 @@ export async function handleScadaRequest(config = {}) {
         pintadoIndependiente: false, 
         colorFijoestatico: "#64748b",
         animarNivel: true,
-        idAguaOriginal: "aguaT1"
+        idAguaOriginal: "aguaT1",
+        sensor: "sensor1"
       },
       { vacio: true },
       {
@@ -55,37 +58,56 @@ export async function handleScadaRequest(config = {}) {
       "https://res.cloudinary.com/drov8gutj/image/upload/v1778483015/PipeTeeUp_pfsgth.svg"
     ];
 
-    async function getEnhancedSVG(url, idPrefix, isIndependent = false, animarNivel = false, idAguaOriginal = "aguaT1") {
+    async function getEnhancedSVG(
+      url,
+      idPrefix,
+      isIndependent = false,
+      animarNivel = false,
+      idAguaOriginal = "aguaT1"
+    ) {
       const res = await fetch(url);
       let svg = await res.text();
-      
-      if (animarNivel) {
-        const frameId = idAguaOriginal.replace("agua", "Frame"); 
-        svg = svg.replace('>', `><defs><clipPath id="${idPrefix}-clip"><use xlink:href="#${idPrefix}-${frameId}" /></clipPath></defs>`);
-      }
+      let clipDefinition = "";
 
       svg = svg.replace(/id="([^"]+)"/g, (m, id) => `id="${idPrefix}-${id}"`);
       svg = svg.replace(/url\(#([^)]+)\)/g, (m, id) => `url(#${idPrefix}-${id})`);
       svg = svg.replace(/xlink:href="#([^"]+)"/g, (m, id) => `xlink:href="#${idPrefix}-${id}"`);
 
       if (animarNivel) {
-        svg = svg.replace(`id="${idPrefix}-${idAguaOriginal}"`, `id="${idPrefix}-${idAguaOriginal}" class="water-layer" clip-path="url(#${idPrefix}-clip)"`);
+        const clipId = `${idPrefix}-clip`;
+        const clipRectId = `${clipId}-rect`;
+        clipDefinition = `<defs><clipPath id="${clipId}" clipPathUnits="userSpaceOnUse"><rect id="${clipRectId}" x="0" y="0" width="0" height="0" /></clipPath></defs>`;
+        svg = svg.replace(
+          /<svg\b[^>]*>/i,
+          root => `${root}${clipDefinition}`
+        );
+        svg = svg.replace(
+          `id="${idPrefix}-${idAguaOriginal}"`,
+          `id="${idPrefix}-${idAguaOriginal}" class="water-layer" data-clip-rect="${clipRectId}" clip-path="url(#${clipId})"`
+        );
       }
 
       const viewBox = svg.match(/viewBox="([^"]+)"/i)?.[1] || "0 0 300 300";
       const innerContent = svg.replace(/<svg[^>]*>|<\/svg>/gi, "");
+      const maskContent = clipDefinition ? innerContent.replace(clipDefinition, "") : innerContent;
       const paintClass = isIndependent ? "paint-custom" : "paint-layer";
 
       return `
         <svg viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="pointer-events: none; user-select: none;">
-          <defs><mask id="m-${idPrefix}"><g fill="white" stroke="white">${innerContent}</g></mask></defs>
+          <defs><mask id="m-${idPrefix}"><g fill="white" stroke="white">${maskContent}</g></mask></defs>
           <g>${innerContent}</g>
           <rect class="${paintClass}" width="100%" height="100%" mask="url(#m-${idPrefix})" style="mix-blend-mode: color; opacity: 0.8; pointer-events: none;" />
         </svg>`;
     }
 
     const allSVGs = await Promise.all([
-        ...MIS_TARJETAS.map((t, idx) => t.vacio ? Promise.resolve(null) : getEnhancedSVG(t.url, `card-${idx}`, t.pintadoIndependiente, t.animarNivel, t.idAguaOriginal)),
+        ...MIS_TARJETAS.map((t, idx) => t.vacio ? Promise.resolve(null) : getEnhancedSVG(
+          t.url,
+          `card-${idx}`,
+          t.pintadoIndependiente,
+          t.animarNivel,
+          t.idAguaOriginal
+        )),
         ...PIPE_URLS.map((url, i) => getEnhancedSVG(url, `p${i}`))
     ]);
 
@@ -95,26 +117,49 @@ export async function handleScadaRequest(config = {}) {
     const html = `
       <style>
         body { background: #f1f5f9; color: #1e293b; font-family: 'Segoe UI', sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; margin: 0; }
-        .dashboard { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; width: 100%; max-width: 900px; }
+        .dashboard { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; width: 100%; max-width: 1100px; }
+        .dashboard > * { order: 20; min-width: 0; }
+        .dashboard > #card-container-0 { order: 1; }
+        .dashboard > #card-container-2 { order: 2; }
+        .dashboard > #card-container-4 { order: 3; }
+        .dashboard > #card-container-6 { order: 4; }
+        .dashboard > #card-container-7 { order: 5; }
+        .dashboard > .priority-card { order: 10; }
+        .dashboard > .control-vector-card { order: 11; }
+        .dashboard > .audit-log-card { order: 12; }
+        .dashboard > .card-empty-slot { display: none; }
         .card { background: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between; gap: 12px; }
         .card-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
         .card-controls-panel { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; text-align: center; }
+        .developer-control { display: none; }
+        .dashboard.developer-mode .developer-control { display: flex; }
+        .dashboard.developer-mode .card-controls-panel { display: flex; }
         .btn-toggle { border: none; padding: 5px 14px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 0.75rem; }
         .btn-toggle.active { background: #22c55e; color: white; }
         .btn-toggle.inactive { background: #ef4444; color: white; }
-        .canvas { background: #f8fafc; border-radius: 8px; height: 160px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #cbd5e1; pointer-events: none; }
+        .canvas { display: flex; background: #f8fafc; border-radius: 8px; height: 160px; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #cbd5e1; pointer-events: none; }
         svg { width: 100%; height: 100%; max-width: 90%; max-height: 90%; }
         .pipe-mini-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
         .pipe-item { background: #ffffff; height: 70px; border-radius: 6px; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .water-layer { transform-box: fill-box; transform-origin: bottom; transition: transform 0.4s ease; }
+        .water-layer { transition: none; }
         .status-badge-mini { padding: 6px; border-radius: 5px; text-align: center; font-weight: 700; font-size: 0.7rem; }
+        .card-current-status { color: #334155; font-size: 1rem; font-weight: 700; }
+        .dashboard-header { width: 100%; max-width: 1100px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+        .dashboard-header h2 { margin: 20px 0; color: #334155; }
+        .btn-developer { border: 1px solid #cbd5e1; background: #fff; color: #334155; padding: 8px 12px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+        .priority-card { grid-column: span 3; border: 2px solid #2563eb; background: #eff6ff; }
+        .priority-title { color: #1e3a8a; font-size: 0.85rem; font-weight: 800; }
+        .priority-current { color: #1d4ed8; font-size: 1.35rem; font-weight: 800; }
+        .priority-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .priority-button { border: 1px solid #93c5fd; background: #fff; color: #1e40af; padding: 8px 12px; border-radius: 7px; cursor: pointer; font-weight: 700; }
+        .priority-button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
         input[type=range].scada-range { width: 100%; cursor: pointer; }
         .card.disabled-ui { opacity: 0.6; }
         .card.disabled-ui .canvas, .card.disabled-ui .card-controls-panel { pointer-events: none; filter: grayscale(1); }
         .card.estop-locked input, .card.estop-locked button { pointer-events: none !important; filter: grayscale(1); }
         
         /* --- SISTEMA DE ALARMAS --- */
-        .alarms-section { width: 100%; max-width: 900px; margin-bottom: 20px; }
+        .alarms-section { width: 100%; max-width: 1100px; margin-bottom: 20px; }
         .alarm-card {
             display: flex; justify-content: space-between; align-items: center;
             padding: 12px 18px; border-radius: 10px; margin-bottom: 8px;
@@ -138,7 +183,7 @@ export async function handleScadaRequest(config = {}) {
         .btn-ack:hover { background: #1e293b; }
 
         /* --- VECTOR DE CONTROL --- */
-        .control-vector-card { grid-column: span 2; background: #ffffff; border: 2px solid #1e293b; padding: 20px; border-radius: 12px; }
+        .control-vector-card { grid-column: span 3; background: #ffffff; border: 2px solid #1e293b; padding: 20px; border-radius: 12px; }
         .mode-selector { display: flex; gap: 10px; margin: 15px 0; }
         .btn-mode { flex: 1; padding: 10px; border: 1px solid #cbd5e1; background: white; cursor: pointer; border-radius: 8px; font-weight: bold; font-size: 0.75rem; transition: 0.3s; }
         .btn-mode.active { background: #1e293b; color: white; border-color: #1e293b; }
@@ -162,7 +207,7 @@ export async function handleScadaRequest(config = {}) {
         .role-selector { font-size: 0.55rem; border: 1px solid #e2e8f0; border-radius: 4px; padding: 2px; margin-top: 4px; cursor: pointer; background: #f8fafc; }
 
         /* --- AUDIT LOG --- */
-        .audit-log-card { grid-column: span 2; background: #ffffff; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; }
+        .audit-log-card { grid-column: span 3; background: #ffffff; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; }
         .audit-log-list { list-style: none; padding: 0; margin: 10px 0 0 0; max-height: 120px; overflow-y: auto; }
         .audit-log-list li { font-family: monospace; font-size: 0.65rem; color: #475569; padding: 4px 0; border-bottom: 1px dashed #f1f5f9; }
         .audit-log-list li:last-child { border-bottom: none; }
@@ -178,7 +223,7 @@ export async function handleScadaRequest(config = {}) {
         }
 
         /* --- DIAGNÓSTICO Y TELEMETRÍA --- */
-        .telemetry-card { grid-column: span 2; background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 15px; border-radius: 12px; }
+        .telemetry-card { grid-column: span 3; background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 15px; border-radius: 12px; }
         .telemetry-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
         .metric-box { background: #1e293b; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #334155; }
         .metric-val { display: block; font-size: 1.1rem; font-weight: 800; color: #f8fafc; }
@@ -189,11 +234,21 @@ export async function handleScadaRequest(config = {}) {
         @keyframes heartbeat-pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
 
         /* --- BALANCE DE MATERIA / OEE --- */
-        .oee-card { grid-column: span 2; background: #fdf2f8; border: 1px solid #fbcfe8; padding: 15px; border-radius: 12px; }
+        .oee-card { grid-column: span 3; background: #fdf2f8; border: 1px solid #fbcfe8; padding: 15px; border-radius: 12px; }
         .oee-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
         .oee-box { background: #ffffff; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #f9a8d4; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .oee-val { display: block; font-size: 1.1rem; font-weight: 800; color: #be185d; }
         .oee-label { font-size: 0.55rem; text-transform: uppercase; color: #db2777; letter-spacing: 0.5px; font-weight: bold; }
+
+        @media (max-width: 760px) {
+          .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .priority-card, .control-vector-card, .audit-log-card, .telemetry-card, .oee-card { grid-column: span 2; }
+        }
+        @media (max-width: 520px) {
+          body { padding: 12px; }
+          .dashboard { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+          .priority-card, .control-vector-card, .audit-log-card, .telemetry-card, .oee-card { grid-column: span 1; }
+        }
 
       </style>
       <div class="user-profile-card">
@@ -208,9 +263,22 @@ export async function handleScadaRequest(config = {}) {
           </select>
         </div>
       </div>
-      <h2 style="margin-top: 20px; margin-bottom: 20px; color: #334155;">Dashboard - SCADA HMI</h2>
+      <div class="dashboard-header">
+        <h2>Dashboard - SCADA HMI</h2>
+        <button id="developer-mode-toggle" class="btn-developer" type="button" onclick="toggleDeveloperMode()" aria-expanded="false" hidden>⚙️ Modo Desarrollador</button>
+      </div>
       <div id="alarms-list" class="alarms-section"></div>
       <div class="dashboard">
+        <div class="card priority-card">
+          <div class="priority-title">Prioridad de Llenado</div>
+          <div id="filling-priority-current" class="priority-current" aria-live="polite">Prioridad Actual: Cargando...</div>
+          <div id="filling-priority-actions" class="priority-actions" hidden>
+            <button class="priority-button" data-priority="2" type="button" onclick="setFillingPriority(2)">T2</button>
+            <button class="priority-button" data-priority="3" type="button" onclick="setFillingPriority(3)">T3</button>
+            <button class="priority-button" data-priority="1" type="button" onclick="setFillingPriority(1)">Intercalado</button>
+          </div>
+        </div>
+
         <!-- TARJETA DE REGISTRO DE CAMBIOS (AUDIT LOG) -->
         <div class="card audit-log-card">
           <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -255,9 +323,10 @@ export async function handleScadaRequest(config = {}) {
           }
           return `
           <div class="card" id="card-container-${idx}" data-independent="${t.pintadoIndependiente}" data-static-color="${t.colorFijoestatico}">
-            <div class="card-header"><label>${t.nombre}</label><button class="btn-toggle active" id="toggle-${idx}" onclick="toggleCard(${idx})">ON</button></div>
+            <div class="card-header"><label>${t.nombre}</label><button class="btn-toggle active developer-control" id="toggle-${idx}" onclick="toggleCard(${idx})">ON</button></div>
+            <div class="card-current-status" id="card-current-status-${idx}">${t.animarNivel ? "Nivel: --% · " : ""}Estado: Encendido</div>
             <div class="canvas">${customSVGs[idx]}</div>
-            <div class="card-controls-panel">
+            <div class="card-controls-panel developer-control">
               <label>${t.animarNivel ? "Nivel de Tanque" : "Color Proceso"}: <span id="card-colorTxt-${idx}">50</span>%</label>
               <input type="range" class="scada-range" id="colorSlider-${idx}" min="0" max="${t.animarNivel ? "100" : "19"}" step="${t.animarNivel ? "0.1" : "1"}" value="${t.animarNivel ? "50" : (idx * 3) % 20}" oninput="handleCardSliderInput(${idx})">
               <div id="card-statusLabel-${idx}" class="status-badge-mini">OK</div>
@@ -265,14 +334,15 @@ export async function handleScadaRequest(config = {}) {
           </div>`;
         }).join('')}
         <div class="card" style="grid-column: span 2;" id="card-container-pipes">
-          <div class="card-header"><label>Red de Tuberías</label><button class="btn-toggle active" id="toggle-pipes" onclick="togglePipes()">ON</button></div>
+          <div class="card-header"><label>Red de Tuberías</label><button class="btn-toggle active developer-control" id="toggle-pipes" onclick="togglePipes()">ON</button></div>
+          <div class="card-current-status" id="pipes-current-status">Estado: Encendido</div>
           <div class="canvas"><div class="pipe-mini-grid">${svgPipes.map(s => `<div class="pipe-item">${s}</div>`).join('')}</div></div>
-          <div class="card-controls-panel" style="flex-direction: row; justify-content: space-between; align-items: center;">
+          <div class="card-controls-panel developer-control" style="flex-direction: row; justify-content: space-between; align-items: center;">
              <input type="range" class="scada-range" id="pipes-colorSlider" min="0" max="19" value="6" oninput="handlePipesColorInput()">
              <div id="pipes-statusLabel" class="status-badge-mini" style="min-width: 100px;">FLUJO OK</div>
           </div>
         </div>
-        <div class="card" style="grid-column: span 2; background: #eff6ff; border: 2px solid #3b82f6;">
+        <div class="card developer-control" style="grid-column: span 2; background: #eff6ff; border: 2px solid #3b82f6;">
           <label>Nivel Global: <span id="levelTxt">50</span>%</label>
             <input type="range" class="scada-range" id="levelSlider" min="0" max="100" value="50" oninput="handleSystemLevelInput()">
         </div>
@@ -328,8 +398,12 @@ export async function handleScadaRequest(config = {}) {
         ];
         const cardStates = Array(${MIS_TARJETAS.length}).fill(true);
         let pipesState = true;
-        const cardSensorMap = { 0: "sensor3", 2: "sensor2", 4: "sensor1" };
-        const sensorCardMap = { sensor1: 4, sensor2: 2, sensor3: 0 };
+        const cardSensorMap = Object.fromEntries(
+          ${JSON.stringify(MIS_TARJETAS.map((card, idx) => card.sensor ? [idx, card.sensor] : null).filter(Boolean))}
+        );
+        const sensorCardMap = Object.fromEntries(
+          Object.entries(cardSensorMap).map(([cardIdx, sensor]) => [sensor, Number(cardIdx)])
+        );
         const visibleCardIndexes = [0, 2, 4, 6, 7];
         const cardStatePaths = {
           0: "monitoreo/tanque3Activo",
@@ -348,11 +422,55 @@ export async function handleScadaRequest(config = {}) {
         firebase.initializeApp(firebaseConfig);
         const firebaseDatabase = firebase.database();
         const tankLevels = {};
+        const tankClipDimensions = {};
+        let developerMode = false;
+        const fillingPriorityNames = {
+          1: "Intercalado",
+          2: "Tanque 2",
+          3: "Tanque 3"
+        };
 
         function writeFirebase(path, value) {
           firebaseDatabase.ref(path).set(value).catch(error => {
             console.error("No se pudo actualizar Firebase en " + path, error);
           });
+        }
+
+        function renderFillingPriority(value) {
+          const priority = Number(value);
+          const name = fillingPriorityNames[priority];
+          const label = document.getElementById("filling-priority-current");
+          label.textContent = name
+            ? "Prioridad Actual: " + name
+            : "Prioridad Actual: No configurada";
+
+          document.querySelectorAll(".priority-button").forEach(button => {
+            const isSelected = Number(button.dataset.priority) === priority;
+            button.classList.toggle("active", isSelected);
+            button.setAttribute("aria-pressed", String(isSelected));
+          });
+        }
+
+        function setFillingPriority(value) {
+          if (!currentUser || currentUser.role !== "ADMINISTRADOR") return;
+          if (!Number.isInteger(value) || !Object.prototype.hasOwnProperty.call(fillingPriorityNames, value)) return;
+
+          firebaseDatabase.ref("system_live/controles/prioridad").set(value)
+            .then(() => addLogEntry(currentUser.name, "cambió la prioridad de llenado a " + fillingPriorityNames[value] + "."))
+            .catch(error => {
+              console.error("No se pudo actualizar la prioridad de llenado en Firebase", error);
+              alert("No se pudo actualizar la prioridad de llenado. Revisa la conexión y los permisos de Firebase.");
+            });
+        }
+
+        function toggleDeveloperMode() {
+          if (!currentUser || currentUser.role !== "ADMINISTRADOR") return;
+          developerMode = !developerMode;
+          const dashboard = document.querySelector(".dashboard");
+          const button = document.getElementById("developer-mode-toggle");
+          dashboard.classList.toggle("developer-mode", developerMode);
+          button.setAttribute("aria-expanded", String(developerMode));
+          button.textContent = developerMode ? "⚙️ Ocultar controles" : "⚙️ Modo Desarrollador";
         }
 
         function parseFirebaseState(value) {
@@ -379,9 +497,9 @@ export async function handleScadaRequest(config = {}) {
           }
           slider.value = String(level);
           updateCardColor(cardIdx);
+          updateCardSummary(cardIdx);
 
-          const waterLayer = document.querySelector("#card-container-" + cardIdx + " .water-layer");
-          if (waterLayer) waterLayer.style.transform = "scaleY(" + (level / 100) + ")";
+          updateTankWaterClip(cardIdx, level);
 
           const levels = Object.values(tankLevels);
           if (levels.length === 3 && levels.every(current => Math.abs(current - level) < 0.01)) {
@@ -398,9 +516,18 @@ export async function handleScadaRequest(config = {}) {
           button.className = "btn-toggle " + (isOn ? "active" : "inactive");
           container.classList.toggle("disabled-ui", !isOn);
           updateCardColor(idx);
+          updateCardSummary(idx);
         }
 
         function setupFirebaseListeners() {
+          firebaseDatabase.ref("system_live/controles/prioridad").on("value", snapshot => {
+            renderFillingPriority(snapshot.val());
+          }, error => {
+            console.error("Error leyendo system_live/controles/prioridad", error);
+            document.getElementById("filling-priority-current").textContent =
+              "No fue posible cargar la prioridad desde Firebase.";
+          });
+
           Object.values(cardSensorMap).forEach(sensor => {
             firebaseDatabase.ref("monitoreo/" + sensor).on("value", snapshot => {
               if (snapshot.val() !== null) applyTankLevel(sensor, snapshot.val());
@@ -508,6 +635,15 @@ export async function handleScadaRequest(config = {}) {
           document.getElementById('user-avatar-initials').innerText = currentUser.initials;
           document.getElementById('user-display-name').innerText = currentUser.name;
           document.getElementById('user-display-role').innerText = currentUser.role;
+          const isAdmin = currentUser.role === 'ADMINISTRADOR';
+          document.getElementById('developer-mode-toggle').hidden = !isAdmin;
+          document.getElementById('filling-priority-actions').hidden = !isAdmin;
+          if (!isAdmin && developerMode) {
+            developerMode = false;
+            document.querySelector('.dashboard').classList.remove('developer-mode');
+            document.getElementById('developer-mode-toggle').setAttribute('aria-expanded', 'false');
+            document.getElementById('developer-mode-toggle').textContent = '⚙️ Modo Desarrollador';
+          }
 
           const cardsToLock = document.querySelectorAll('.card:not(.telemetry-card):not(.oee-card):not(.audit-log-card):not(.control-vector-card)');
           cardsToLock.forEach(c => {
@@ -785,6 +921,7 @@ export async function handleScadaRequest(config = {}) {
           btn.className = "btn-toggle " + (cardStates[idx] ? "active" : "inactive");
           container.classList.toggle("disabled-ui", !cardStates[idx]);
           updateCardColor(idx);
+          updateCardSummary(idx);
           if (cardStatePaths[idx]) writeFirebase(cardStatePaths[idx], cardStates[idx]);
         }
 
@@ -793,6 +930,8 @@ export async function handleScadaRequest(config = {}) {
           const btn = document.getElementById("toggle-pipes");
           btn.innerText = pipesState ? "ON" : "OFF";
           btn.className = "btn-toggle " + (pipesState ? "active" : "inactive");
+          document.getElementById("pipes-current-status").textContent =
+            "Estado: " + (pipesState ? "Encendido" : "Apagado");
           updatePipesColor();
           writeFirebase("system_live/controles/tuberias/activo", pipesState);
         }
@@ -819,13 +958,23 @@ export async function handleScadaRequest(config = {}) {
           const slider = document.getElementById("colorSlider-" + idx);
           const value = Number(slider.value);
           const isTank = Boolean(cardSensorMap[idx]);
-          const colorIdx = isTank ? Math.round((value / 100) * (paleta.length - 1)) : value;
-          const color = paleta[colorIdx];
           const paintLayer = container.querySelector('.paint-layer, .paint-custom');
+
+          if (isTank) {
+            document.getElementById("card-colorTxt-" + idx).innerText =
+              value.toFixed(1).replace(/\.0$/, "");
+            const badge = document.getElementById("card-statusLabel-" + idx);
+            badge.style.backgroundColor = "#3b82f6";
+            badge.style.color = "#fff";
+            badge.innerText = "AGUA";
+            paintLayer.setAttribute("fill", "#3b82f6");
+            return;
+          }
+
+          const color = paleta[value];
           
-          document.getElementById("card-colorTxt-" + idx).innerText = isTank
-            ? value.toFixed(1).replace(/\.0$/, "")
-            : Math.round((value / 19) * 100);
+          document.getElementById("card-colorTxt-" + idx).innerText =
+            Math.round((value / 19) * 100);
           const badge = document.getElementById("card-statusLabel-" + idx);
           
           if (cardStates[idx]) {
@@ -835,6 +984,17 @@ export async function handleScadaRequest(config = {}) {
             badge.style.backgroundColor = "#e2e8f0"; badge.innerText = "OFF";
             paintLayer.setAttribute('fill', "#cbd5e1");
           }
+        }
+
+        function updateCardSummary(idx) {
+          const status = document.getElementById("card-current-status-" + idx);
+          if (!status) return;
+          const sensor = cardSensorMap[idx];
+          const level = sensor ? tankLevels[sensor] : null;
+          const levelText = typeof level === "number"
+            ? "Nivel: " + Math.round(level) + "% · "
+            : "";
+          status.textContent = levelText + "Estado: " + (cardStates[idx] ? "Encendido" : "Apagado");
         }
 
         function updatePipesColor() {
@@ -850,12 +1010,28 @@ export async function handleScadaRequest(config = {}) {
             badge.style.backgroundColor = "#e2e8f0"; badge.innerText = "OFF";
             pipes.forEach(p => p.setAttribute('fill', "#cbd5e1"));
           }
+          document.getElementById("pipes-current-status").textContent =
+            "Estado: " + (pipesState ? "Encendido" : "Apagado");
         }
 
         function updateSystemLevel() {
           const val = document.getElementById('levelSlider').value;
           document.getElementById('levelTxt').innerText = val;
-          document.querySelectorAll('.water-layer').forEach(w => w.style.transform = "scaleY(" + (val/100) + ")");
+          Object.values(sensorCardMap).forEach(cardIdx => updateTankWaterClip(cardIdx, Number(val)));
+        }
+
+        function updateTankWaterClip(cardIdx, level) {
+          const dimensions = tankClipDimensions[cardIdx];
+          const clipRectId = "card-" + cardIdx + "-clip-rect";
+          const clipRect = document.getElementById(clipRectId);
+          if (!dimensions || !clipRect || !Number.isFinite(level)) return;
+
+          const boundedLevel = Math.max(0, Math.min(100, level));
+          const height = dimensions.height * (boundedLevel / 100);
+          clipRect.setAttribute("x", String(dimensions.x));
+          clipRect.setAttribute("y", String(dimensions.y + dimensions.height - height));
+          clipRect.setAttribute("width", String(dimensions.width));
+          clipRect.setAttribute("height", String(height));
         }
 
         function handleSystemLevelInput() {
@@ -869,6 +1045,25 @@ export async function handleScadaRequest(config = {}) {
         window.onload = () => {
           addLogEntry('Sistema', 'HMI SCADA iniciado.');
           applyRBAC();
+          Object.values(sensorCardMap).forEach(cardIdx => {
+            const waterLayer = document.querySelector("#card-container-" + cardIdx + " .water-layer");
+            if (!waterLayer) {
+              console.error("No se encontró la capa de agua del tanque en la tarjeta " + cardIdx + ".");
+              return;
+            }
+            try {
+              const bounds = waterLayer.getBBox();
+              tankClipDimensions[cardIdx] = {
+                x: bounds.x,
+                y: bounds.y,
+                width: bounds.width,
+                height: bounds.height
+              };
+              updateTankWaterClip(cardIdx, Number(document.getElementById("colorSlider-" + cardIdx).value));
+            } catch (error) {
+              console.error("No se pudieron inicializar las dimensiones del agua en la tarjeta " + cardIdx + ".", error);
+            }
+          });
           updateSystemLevel(); 
           updatePipesColor(); 
           updateTelemetry(); 
@@ -880,5 +1075,5 @@ export async function handleScadaRequest(config = {}) {
           setupAuditLogListener();
         };
       </script>`;
-    return new Response(renderLayout(html, "tarjetas"), { headers: { "Content-Type": "text/html;charset=UTF-8" } });
+    return new Response(renderLayout(html, "dashboard"), { headers: { "Content-Type": "text/html;charset=UTF-8" } });
 }

@@ -1,7 +1,7 @@
 const NAV_ITEMS = [
   { id: "proceso", href: "/proceso", label: "Proceso" },
-  { id: "tarjetas", href: "/tarjetas", label: "Dashboard" },
-  { id: "dashboard", href: "/telemetria", label: "Telemetría" },
+  { id: "dashboard", href: "/dashboard", label: "Dashboard" },
+  { id: "telemetria", href: "/telemetria", label: "Telemetría" },
   { id: "alarmas", href: "/alarmas", label: "Alarmas" }
 ];
 
@@ -9,7 +9,7 @@ export function renderLayout(content, activeTab) {
   const navigation = NAV_ITEMS.map(({ id, href, label }) => `
     <a href="${href}"${id === activeTab ? ' class="active" aria-current="page"' : ""}>${label}</a>
   `).join("");
-  const pageTitle = activeTab === "tarjetas" ? "Dashboard - SCADA HMI" : "SCADA HMI - USAC";
+  const pageTitle = activeTab === "dashboard" ? "Dashboard - SCADA HMI" : "SCADA HMI - USAC";
   const pageStyles = content.match(/<style\b[^>]*>[\s\S]*?<\/style>/gi) || [];
   const bodyContent = content.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "");
 

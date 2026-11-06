@@ -435,4 +435,4 @@ export const renderDashboard = (config) => renderLayout(`
             });
         };
     </script>
-`, "dashboard");
+`, "telemetria");

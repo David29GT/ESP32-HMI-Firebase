@@ -10,16 +10,8 @@ export async function renderScadaSvg(config = {}) {
       }
       let svgRawText = await svgResponse.text();
 
-      // Inyección de filtros y los contenedores clipPath iniciales vacíos para los tanques
+      // Inyección de los contenedores clipPath iniciales vacíos para los tanques
       const inyeccionDefs = `
-        <filter id="sombra-hundido" x="-20%" y="-20%" width="140%" height="140%">
-          <feOffset dx="0.8" dy="1"/>
-          <feGaussianBlur stdDeviation="0.6" result="offset-blur"/>
-          <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse"/>
-          <feFlood flood-color="#000000" flood-opacity="0.6" result="color"/>
-          <feComposite operator="in" in="color" in2="inverse" result="shadow"/>
-          <feComposite operator="over" in="shadow" in2="SourceGraphic"/>
-        </filter>
         <clipPath id="clip-deposito"><rect id="clip-rect-deposito" x="0" y="0" width="0" height="0" /></clipPath>
         <clipPath id="clip-tanque2"><rect id="clip-rect-tanque2" x="0" y="0" width="0" height="0" /></clipPath>
         <clipPath id="clip-tanque1"><rect id="clip-rect-tanque1" x="0" y="0" width="0" height="0" /></clipPath>
@@ -31,14 +23,12 @@ export async function renderScadaSvg(config = {}) {
       const actuadores = [
         { 
           ids: ["Pump", "Motor", "Base"], 
-          nombre: "Bomba Completa", 
-          initVal: 10, 
+          nombre: "Bomba de Agua",
           tipo: "bomba" 
         },        
         { 
           ids: ["Shutoff_Housing__x2B__Electric_Box", "Mini_Pipe"], 
-          nombre: "Válvula de Seguridad", 
-          initVal: 4, 
+          nombre: "Válvula Selectora de Tanque",
           tipo: "bomba" 
         },
         { 
@@ -50,14 +40,12 @@ export async function renderScadaSvg(config = {}) {
             "TB_BASE_FIN_Shape_4"
           ], 
           nombre: "Tubería Base", 
-          initVal: 6, 
           tipo: "tuberia", 
           selector: "path, rect, polygon" 
         },
         { 
           ids: ["TuberiaT2_Shape_5"], 
           nombre: "Tubería T2", 
-          initVal: 6, 
           tipo: "tuberia", 
           selector: "path, rect, polygon" 
         },
@@ -68,7 +56,6 @@ export async function renderScadaSvg(config = {}) {
             "TuberiaT3_VERTICAL_Shape_6"
           ], 
           nombre: "Tubería T3", 
-          initVal: 6, 
           tipo: "tuberia", 
           selector: "path, rect, polygon" 
         },
@@ -81,23 +68,29 @@ export async function renderScadaSvg(config = {}) {
           idFondo: "Contenedor_Agua_Dep",
           clipId: "clip-rect-deposito",
           nombre: "Nivel Depósito",
-          initVal: 12, 
+          sensor: "sensor3",
+          tanque: "T1",
+          initVal: 50,
           tipo: "tanque"
         },
         {
           ids: ["aguaT2"],
           idFondo: "Contenedor_Agua_T2",
           clipId: "clip-rect-tanque2",
-          nombre: "Nivel Tanque Central",
-          initVal: 12,
+          nombre: "Nivel Tanque Segundo Nivel",
+          sensor: "sensor2",
+          tanque: "T2",
+          initVal: 50,
           tipo: "tanque"
         },
         {
           ids: ["aguaT1"],
           idFondo: "Contenedor_Agua_T3",
           clipId: "clip-rect-tanque1",
-          nombre: "Nivel Tanque Superior",
-          initVal: 12,
+          nombre: "Nivel Tanque Tercer Nivel",
+          sensor: "sensor1",
+          tanque: "T3",
+          initVal: 50,
           tipo: "tanque"
         }
       ];
@@ -107,15 +100,22 @@ export async function renderScadaSvg(config = {}) {
         <div class="control-card-item" id="container-${idx}">
           <div class="control-card-header">
             <label class="instrument-label">${act.nombre}</label>
-            <button class="btn-toggle active" id="toggle-${idx}" onclick="toggleActuador(${idx})">ON</button>
+            ${idx === 0 ? `<div class="pump-controls">
+              <button class="btn-toggle active developer-control" id="toggle-${idx}" onclick="toggleActuador(${idx})" hidden>ON</button>
+              <button class="fault-simulation-button developer-control" id="simulate-pump-fault" type="button" onclick="toggleSimulatedPumpFault()" hidden>Simular falla</button>
+            </div>` : `<button class="btn-toggle active developer-control" id="toggle-${idx}" onclick="toggleActuador(${idx})" hidden>ON</button>`}
           </div>
-          <div class="slider-wrapper">
+          ${act.tipo === 'tanque' ? `<div class="slider-wrapper developer-control" hidden>
             <label class="control-label">
-              ${act.tipo === 'tanque' ? 'Nivel / Opacidad:' : 'Filtro de Color:'} 
+              Nivel de tanque:
               <span id="colorTxt-${idx}" class="color-percentage">0</span>%
             </label>
-            <input type="range" class="scada-range" id="slider-${idx}" min="0" max="19" value="${act.initVal}" oninput="handleSliderInput(${idx})">
-          </div>
+            <input type="range" class="scada-range" id="slider-${idx}" min="0" max="100" value="${act.initVal}" oninput="handleSliderInput(${idx})">
+            <label class="sensor-disconnect-control">
+              <input type="checkbox" id="sensor-error-${act.sensor}" onchange="setSensorDisconnected('${act.sensor}', this.checked)">
+              Simular Sensor Desconectado (${act.tanque})
+            </label>
+          </div>` : ""}
           <div id="statusLabel-${idx}" class="status-badge-mini">PROCESO OK</div>
         </div>
       `).join('');
@@ -190,6 +190,25 @@ export async function renderScadaSvg(config = {}) {
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+        .pump-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .fault-simulation-button {
+            border: 1px solid #fecaca;
+            border-radius: 5px;
+            background: #fff;
+            color: #b91c1c;
+            padding: 4px 8px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .fault-simulation-button.active {
+            background: #ef4444;
+            color: #fff;
         }
 
         .instrument-label {
@@ -269,6 +288,172 @@ export async function renderScadaSvg(config = {}) {
         .control-card-item.disabled-ui input[type=range] {
             pointer-events: none;
         }
+        .developer-control[hidden],
+        .priority-actions[hidden] {
+            display: none !important;
+        }
+        .control-mode-button {
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            background: #fff;
+            color: #334155;
+            padding: 8px 10px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .priority-card {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 12px;
+            display: grid;
+            gap: 8px;
+        }
+        .priority-title {
+            color: #1e3a8a;
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+        .priority-current {
+            color: #1d4ed8;
+            font-size: 1rem;
+            font-weight: 800;
+        }
+        .priority-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .priority-button {
+            border: 1px solid #93c5fd;
+            border-radius: 6px;
+            background: #fff;
+            color: #1e40af;
+            padding: 6px 10px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .priority-button.active {
+            border-color: #2563eb;
+            background: #2563eb;
+            color: #fff;
+        }
+        .process-alert-status {
+            border-radius: 6px;
+            background: #f1f5f9;
+            color: #475569;
+            padding: 8px;
+            font-size: 0.7rem;
+            font-weight: 800;
+        }
+        .process-alert-status.critical {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .process-alert-status.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .process-alert-details {
+            max-height: 120px;
+            overflow-y: auto;
+            font-size: 0.68rem;
+            color: #475569;
+            line-height: 1.4;
+        }
+        .process-level-label rect {
+            fill: rgba(255, 255, 255, 0.86);
+            stroke: #cbd5e1;
+            stroke-width: 1.5;
+        }
+        .process-level-label text {
+            fill: #0f172a;
+            font-family: Arial, sans-serif;
+            font-weight: 800;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+        .process-modal[hidden] { display: none; }
+        .process-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(15, 23, 42, 0.78);
+        }
+        .process-modal-dialog {
+            width: min(100%, 420px);
+            padding: 22px;
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            background: #fff;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+        }
+        .process-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .process-modal-title {
+            margin: 0;
+            color: #0f172a;
+            font-size: 1.1rem;
+        }
+        .process-modal-close {
+            border: 0;
+            border-radius: 7px;
+            background: #e2e8f0;
+            color: #0f172a;
+            padding: 6px 10px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .process-modal-details {
+            display: grid;
+            gap: 10px;
+            color: #334155;
+            font-size: 0.95rem;
+        }
+        .glow-blue {
+            filter: drop-shadow(0 0 8px rgba(59, 130, 246, 1)) !important;
+        }
+        .glow-red {
+            filter: drop-shadow(0 0 8px rgba(239, 68, 68, 1)) !important;
+        }
+        .glow-yellow {
+            filter: drop-shadow(0 0 8px rgba(251, 191, 36, 1)) !important;
+        }
+        .sensor-disconnect-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #475569;
+            font-size: 0.65rem;
+            font-weight: 700;
+        }
+        .process-user-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .process-user-controls select {
+            max-width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            background: #fff;
+            color: #334155;
+            padding: 7px;
+            font-size: 0.7rem;
+        }
 
         #tarjeta-visualizacion {
             background-color: #ffffff;
@@ -296,11 +481,6 @@ export async function renderScadaSvg(config = {}) {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
-        }
-
-        .efecto-dinamico {
-            transition: transform 0.15s ease-in-out, fill 0.25s ease, opacity 0.25s ease;
-            transform-origin: center;
         }
 
         @media (max-width: 900px) {
@@ -352,6 +532,25 @@ export async function renderScadaSvg(config = {}) {
         <div id="panel-instrumentacion" class="tarjeta-hmi">
             <h2>SCADA HMI - USAC</h2>
             <div class="subtitle">Control de Variables</div>
+            <div class="process-user-controls">
+                <select id="process-role-selector" aria-label="Rol de usuario" onchange="switchProcessUser(this.value)">
+                    <option value="op_01">Ver como Operador</option>
+                    <option value="sup_01">Ver como Supervisor</option>
+                    <option value="adm_01" selected>Ver como Administrador</option>
+                </select>
+                <button id="developer-mode-toggle" class="control-mode-button" type="button" onclick="toggleDeveloperMode()" aria-expanded="false" hidden>⚙️ Modo Desarrollador</button>
+            </div>
+            <div class="priority-card">
+                <div class="priority-title">Prioridad de Llenado</div>
+                <div id="filling-priority-current" class="priority-current" aria-live="polite">Prioridad Actual: Cargando...</div>
+                <div id="filling-priority-actions" class="priority-actions" hidden>
+                    <button class="priority-button" data-priority="2" type="button" onclick="setFillingPriority(2)">T2</button>
+                    <button class="priority-button" data-priority="3" type="button" onclick="setFillingPriority(3)">T3</button>
+                    <button class="priority-button" data-priority="1" type="button" onclick="setFillingPriority(1)">Intercalado</button>
+                </div>
+            </div>
+            <div id="process-alert-status" class="process-alert-status" aria-live="polite">Sistema sin alarmas activas</div>
+            <div id="process-alert-details" class="process-alert-details" aria-live="polite"></div>
             ${controlesHTML}
         </div>
 
@@ -361,28 +560,27 @@ export async function renderScadaSvg(config = {}) {
             </div>
         </div>
     </div>
-
+    <div id="process-info-modal" class="process-modal" hidden role="dialog" aria-modal="true" aria-labelledby="process-modal-title" onclick="if (event.target === this) closeProcessInfoModal()">
+        <div class="process-modal-dialog">
+            <div class="process-modal-header">
+                <h3 id="process-modal-title" class="process-modal-title"></h3>
+                <button id="process-modal-close" class="process-modal-close" type="button" aria-label="Cerrar" onclick="closeProcessInfoModal()">X</button>
+            </div>
+            <div id="process-modal-details" class="process-modal-details"></div>
+        </div>
+    </div>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script>
-        const paleta = [
-            { n: "GRIS CLARO", c: "#94a3b8", t: "#000" }, { n: "GRIS DEEP", c: "#334155", t: "#fff" },
-            { n: "BLANCO", c: "#f8fafc", t: "#000" }, { n: "PLATA DEEP", c: "#cbd5e1", t: "#000" },
-            { n: "ROJO ALERTA", c: "#ef4444", t: "#fff" }, { n: "ROJO DEEP", c: "#7f1d1d", t: "#fff" },
-            { n: "AZUL AGUA", c: "#3b82f6", t: "#fff" }, { n: "AZUL DEEP", c: "#1e3a8a", t: "#fff" },
-            { n: "AMARILLO", c: "#fbbf24", t: "#000" }, { n: "AMARILLO DEEP", c: "#92400e", t: "#fff" },
-            { n: "VERDE OK", c: "#22c55e", t: "#fff" }, { n: "VERDE DEEP", c: "#064e3b", t: "#fff" },
-            { n: "NARANJA", c: "#f97316", t: "#fff" }, { n: "NARANJA DEEP", c: "#7c2d12", t: "#fff" },
-            { n: "CIAN", c: "#06b6d4", t: "#fff" }, { n: "CIAN DEEP", c: "#164e63", t: "#fff" },
-            { n: "PÚRPURA", c: "#a855f7", t: "#fff" }, { n: "PÚRPURA DEEP", c: "#4c1d95", t: "#fff" },
-            { n: "ROSA", c: "#ec4899", t: "#fff" }, { n: "ROSA DEEP", c: "#831843", t: "#fff" }
-        ];
-
-        const coloresOriginalesSvg = {};
         const actuadoresData = ${JSON.stringify(actuadores)};
         const estadosActuadores = Array(actuadoresData.length).fill(true);
         const dimensionesOriginalesTanques = {};
         const sensorActuators = { 7: "sensor1", 6: "sensor2", 5: "sensor3" };
+        const sensorActuatorIndexes = { sensor1: 7, sensor2: 6, sensor3: 5 };
+        const sensorLevels = {};
+        const sensorDisconnected = { sensor1: false, sensor2: false, sensor3: false };
+        const originalProcessFills = new WeakMap();
+        const processOverlays = new Map();
         const actuatorStatePaths = {
             0: "monitoreo/bomba",
             1: "monitoreo/valvula",
@@ -393,18 +591,34 @@ export async function renderScadaSvg(config = {}) {
             6: "monitoreo/tanque2Activo",
             7: "monitoreo/tanque1Activo"
         };
-        const actuatorColorPaths = {
-            0: "system_live/controles/bomba/color",
-            1: "system_live/controles/valvula/color",
-            2: "system_live/controles/tuberias/base_color",
-            3: "system_live/controles/tuberias/t2_color",
-            4: "system_live/controles/tuberias/t3_color"
-        };
         const firebaseConfig = {
             databaseURL: ${JSON.stringify(config.FIREBASE_URL || 'https://esp32-hmi-default-rtdb.firebaseio.com/')}
         };
         firebase.initializeApp(firebaseConfig);
         const firebaseDatabase = firebase.database();
+        const PROCESS_COLORS = {
+            blue: "#3b82f6",
+            red: "#ef4444",
+            yellow: "#fbbf24"
+        };
+        const USERS = {
+            "op_01": { name: "Operador_01", role: "OPERADOR" },
+            "sup_01": { name: "Supervisor_01", role: "SUPERVISOR" },
+            "adm_01": { name: "Admin_USAC", role: "ADMINISTRADOR" }
+        };
+        let currentUser = USERS.adm_01;
+        let developerMode = false;
+        let pumpActive = false;
+        let simulatedPumpFault = false;
+        let interleavedTank = 3;
+        let valveActive = false;
+        let emergencyStopActive = false;
+        let fillingPriority = 1;
+        let activeAlarms = [];
+        let activeProcessInfo = null;
+        let processLevelLabels = new Map();
+        const processReadErrors = new Set();
+        const pipeStates = { base: false, t2: false, t3: false };
 
         function writeFirebase(path, value) {
             firebaseDatabase.ref(path).set(value).catch(error => {
@@ -412,38 +626,319 @@ export async function renderScadaSvg(config = {}) {
             });
         }
 
-        function handleSliderInput(idx) {
-            updateElementColor(idx);
-            const slider = document.getElementById("slider-" + idx);
+        const fillingPriorityNames = {
+            1: "Intercalado",
+            2: "Tanque 2",
+            3: "Tanque 3"
+        };
 
-            if (sensorActuators[idx]) {
-                const nivel = (Number(slider.value) / 19) * 100;
-                writeFirebase("monitoreo/" + sensorActuators[idx], Number(nivel.toFixed(1)));
-            } else if (actuatorColorPaths[idx]) {
-                writeFirebase(actuatorColorPaths[idx], Number(slider.value));
+        function renderFillingPriority(value) {
+            const priority = Number(value);
+            const name = fillingPriorityNames[priority];
+            document.getElementById("filling-priority-current").textContent = name
+                ? "Prioridad Actual: " + name
+                : "Prioridad Actual: No configurada";
+            document.querySelectorAll(".priority-button").forEach(button => {
+                const isSelected = Number(button.dataset.priority) === priority;
+                button.classList.toggle("active", isSelected);
+                button.setAttribute("aria-pressed", String(isSelected));
+            });
+        }
+
+        function setFillingPriority(value) {
+            if (!currentUser || currentUser.role !== "ADMINISTRADOR") return;
+            if (!Number.isInteger(value) || !Object.prototype.hasOwnProperty.call(fillingPriorityNames, value)) return;
+
+            firebaseDatabase.ref("system_live/controles/prioridad").set(value).catch(error => {
+                console.error("No se pudo actualizar la prioridad de llenado en Firebase", error);
+                alert("No se pudo actualizar la prioridad de llenado. Revisa la conexión y los permisos de Firebase.");
+            });
+        }
+
+        function applyProcessRole() {
+            const isAdmin = currentUser && currentUser.role === "ADMINISTRADOR";
+            const developerButton = document.getElementById("developer-mode-toggle");
+            developerButton.hidden = !isAdmin;
+            document.getElementById("filling-priority-actions").hidden = !isAdmin;
+
+            if (!isAdmin) {
+                developerMode = false;
+                simulatedPumpFault = false;
+                document.getElementById("process-role-selector").value =
+                    Object.keys(USERS).find(uid => USERS[uid] === currentUser) || "op_01";
+                const faultButton = document.getElementById("simulate-pump-fault");
+                faultButton.classList.remove("active");
+                faultButton.textContent = "Simular falla";
             }
+
+            developerButton.setAttribute("aria-expanded", String(isAdmin && developerMode));
+            developerButton.textContent = developerMode ? "⚙️ Ocultar controles" : "⚙️ Modo Desarrollador";
+            document.querySelectorAll(".developer-control").forEach(control => {
+                const isVisible = Boolean(isAdmin && developerMode);
+                control.hidden = !isVisible;
+                if ("disabled" in control) control.disabled = !isVisible;
+            });
+            const pumpButton = document.getElementById("toggle-0");
+            pumpButton.disabled = !isAdmin || !developerMode;
+            pumpButton.setAttribute("aria-label", "Bomba " + (pumpActive ? "encendida" : "apagada"));
+        }
+
+        function switchProcessUser(uid) {
+            if (!Object.prototype.hasOwnProperty.call(USERS, uid)) return;
+            currentUser = USERS[uid];
+            applyProcessRole();
+            renderIndustrialState();
+        }
+
+        function toggleDeveloperMode() {
+            if (!currentUser || currentUser.role !== "ADMINISTRADOR") return;
+            developerMode = !developerMode;
+            applyProcessRole();
+        }
+
+        function toggleSimulatedPumpFault() {
+            if (!currentUser || currentUser.role !== "ADMINISTRADOR" || !developerMode) return;
+            simulatedPumpFault = !simulatedPumpFault;
+            const button = document.getElementById("simulate-pump-fault");
+            button.classList.toggle("active", simulatedPumpFault);
+            button.textContent = simulatedPumpFault ? "Quitar falla" : "Simular falla";
+            renderIndustrialState();
         }
 
         function parseActuatorState(value) {
+            if (value && typeof value === "object") {
+                value = value.activo ?? value.estado ?? value.active ?? value.on;
+            }
             const normalizedValue = String(value).toLowerCase();
             return value === true || value === 1 ||
                 normalizedValue === "true" || normalizedValue === "1" ||
-                normalizedValue === "on" || normalizedValue === "encendida";
+                normalizedValue === "on" || normalizedValue === "encendida" ||
+                normalizedValue === "abierta";
+        }
+
+        function recordProcessReadError(path, error) {
+            console.error("Error leyendo " + path, error);
+            processReadErrors.add(path);
+            renderIndustrialState();
+        }
+
+        function clearProcessReadError(path) {
+            processReadErrors.delete(path);
+        }
+
+        function getAlarmSeverity(alarm) {
+            const rawLevel = String(alarm.nivel || alarm.severity || alarm.tipo || "warning").toLowerCase();
+            if (rawLevel.includes("critic") || rawLevel.includes("high")) return "critical";
+            if (rawLevel.includes("info")) return "info";
+            return "warning";
+        }
+
+        function renderProcessAlertStatus() {
+            const status = document.getElementById("process-alert-status");
+            const details = document.getElementById("process-alert-details");
+            const hasCriticalAlarm = activeAlarms.some(alarm => getAlarmSeverity(alarm) === "critical");
+            const hasWarningAlarm = activeAlarms.some(alarm => getAlarmSeverity(alarm) === "warning");
+            status.classList.toggle("critical", emergencyStopActive || simulatedPumpFault || hasCriticalAlarm);
+            status.classList.toggle("warning", !emergencyStopActive && !simulatedPumpFault &&
+                !hasCriticalAlarm && (processReadErrors.size > 0 || hasWarningAlarm));
+
+            if (emergencyStopActive) status.textContent = "E-STOP ACTIVO";
+            else if (simulatedPumpFault) status.textContent = "FALLA DE BOMBA SIMULADA";
+            else if (processReadErrors.size > 0) {
+                status.textContent = "ERROR DE SINCRONIZACIÓN: " + processReadErrors.size + " señal(es)";
+            }
+            else if (activeAlarms.length) status.textContent =
+                "ALARMAS ACTIVAS: " + activeAlarms.length;
+            else status.textContent = "Sistema sin alarmas activas";
+
+            const descriptions = activeAlarms.map(alarm =>
+                String(alarm.mensaje || alarm.msg || alarm.detalle || alarm.cod || "Alarma sin descripción"));
+            if (emergencyStopActive) descriptions.unshift("Parada de emergencia activa");
+            if (simulatedPumpFault) descriptions.unshift("Falla crítica simulada en la bomba");
+            if (processReadErrors.size) descriptions.push("Error leyendo señal(es): " + Array.from(processReadErrors).join(", "));
+            details.replaceChildren(...descriptions.map(description => {
+                const item = document.createElement("div");
+                item.textContent = description;
+                return item;
+            }));
+        }
+
+        function getProcessAlarmOverrides() {
+            const overrides = new Map();
+            const addOverride = (target, color) => {
+                const current = overrides.get(target);
+                if (color === PROCESS_COLORS.red || !current) overrides.set(target, color);
+            };
+
+            if (emergencyStopActive) {
+                [0, 1, 2, 3, 4, 5, 6, 7].forEach(target =>
+                    addOverride(target, PROCESS_COLORS.red));
+                return overrides;
+            }
+
+            if (simulatedPumpFault) {
+                [0, 1, 2, 3, 4, 5, 6, 7].forEach(target =>
+                    addOverride(target, PROCESS_COLORS.red));
+                return overrides;
+            }
+
+            if (activeAlarms.length > 0) {
+                const processAlarms = activeAlarms.filter(alarm => alarm.tipo !== "sensor");
+                const color = processAlarms.some(alarm => getAlarmSeverity(alarm) === "critical")
+                    ? PROCESS_COLORS.red
+                    : processAlarms.some(alarm => getAlarmSeverity(alarm) === "warning")
+                        ? PROCESS_COLORS.yellow
+                        : null;
+                if (color) {
+                    [0, 1, 2, 3, 4, 5, 6, 7].forEach(target => addOverride(target, color));
+                }
+            }
+            if (processReadErrors.size) {
+                [0, 1, 2, 3, 4, 5, 6, 7].forEach(target =>
+                    addOverride(target, PROCESS_COLORS.yellow));
+            }
+            return overrides;
+        }
+
+        function renderIndustrialState() {
+            const route = { base: false, t2: false, t3: false, valve: valveActive };
+            if (pumpActive) {
+                if (fillingPriority === 2) {
+                    route.base = true;
+                    route.t2 = true;
+                } else if (fillingPriority === 3) {
+                    route.base = true;
+                    route.t3 = true;
+                } else {
+                    route.base = true;
+                    route[interleavedTank === 2 ? "t2" : "t3"] = true;
+                }
+            }
+
+            const normalColors = [
+                pumpActive ? PROCESS_COLORS.blue : null,
+                route.valve ? PROCESS_COLORS.blue : null,
+                route.base ? PROCESS_COLORS.blue : null,
+                route.t2 ? PROCESS_COLORS.blue : null,
+                route.t3 ? PROCESS_COLORS.blue : null
+            ];
+            const overrides = getProcessAlarmOverrides();
+            normalColors.forEach((color, index) =>
+                paintProcessElement(index, overrides.get(index) || color));
+
+            [5, 6, 7].forEach(index => {
+                const alarmColor = overrides.get(index);
+                if (sensorDisconnected[actuadoresData[index].sensor]) renderTankLevel(index);
+                else if (alarmColor) paintTankAlarm(index, alarmColor);
+                else renderTankLevel(index);
+            });
+            const pumpButton = document.getElementById("toggle-0");
+            pumpButton.textContent = pumpActive ? "ON" : "OFF";
+            pumpButton.classList.toggle("active", pumpActive);
+            pumpButton.classList.toggle("inactive", !pumpActive);
+            pumpButton.setAttribute("aria-label", "Bomba " + (pumpActive ? "encendida" : "apagada"));
+            const valveButton = document.getElementById("toggle-1");
+            valveButton.textContent = valveActive ? "ON" : "OFF";
+            valveButton.classList.toggle("active", valveActive);
+            valveButton.classList.toggle("inactive", !valveActive);
+            renderProcessAlertStatus();
+        }
+
+        function setupProcessFirebaseListeners() {
+            const priorityPath = "system_live/controles/prioridad";
+            firebaseDatabase.ref(priorityPath).on("value", snapshot => {
+                clearProcessReadError(priorityPath);
+                fillingPriority = Number(snapshot.val());
+                if (!Object.prototype.hasOwnProperty.call(fillingPriorityNames, fillingPriority)) {
+                    fillingPriority = 1;
+                }
+                renderFillingPriority(snapshot.val());
+                renderIndustrialState();
+            }, error => {
+                recordProcessReadError(priorityPath, error);
+                document.getElementById("filling-priority-current").textContent =
+                    "No fue posible cargar la prioridad desde Firebase.";
+            });
+
+            const pumpPath = "monitoreo/bomba";
+            firebaseDatabase.ref(pumpPath).on("value", snapshot => {
+                clearProcessReadError(pumpPath);
+                setPumpState(snapshot.val() !== null && parseActuatorState(snapshot.val()));
+                renderIndustrialState();
+            }, error => recordProcessReadError(pumpPath, error));
+
+            ["base", "t2", "t3"].forEach(pipe => {
+                const path = "system_live/controles/tuberias/" + pipe;
+                firebaseDatabase.ref(path).on("value", snapshot => {
+                    clearProcessReadError(path);
+                    pipeStates[pipe] = snapshot.val() !== null && parseActuatorState(snapshot.val());
+                    const actuatorIndex = { base: 2, t2: 3, t3: 4 }[pipe];
+                    updateActuatorState(actuatorIndex, pipeStates[pipe]);
+                    renderIndustrialState();
+                }, error => recordProcessReadError(path, error));
+            });
+
+            const applyValveState = value => {
+                valveActive = parseActuatorState(value);
+                updateActuatorState(1, valveActive);
+                renderIndustrialState();
+                updateProcessInfoModal();
+            };
+            const systemValvePath = "system_live/controles/valvula";
+            firebaseDatabase.ref(systemValvePath).on("value", snapshot => {
+                clearProcessReadError(systemValvePath);
+                if (snapshot.val() !== null) applyValveState(snapshot.val());
+                else renderIndustrialState();
+            }, error => recordProcessReadError(systemValvePath, error));
+            const monitorValvePath = "monitoreo/valvula";
+            firebaseDatabase.ref(monitorValvePath).on("value", snapshot => {
+                clearProcessReadError(monitorValvePath);
+                if (snapshot.val() !== null) applyValveState(snapshot.val());
+                else renderIndustrialState();
+            }, error => recordProcessReadError(monitorValvePath, error));
+
+            const estopPath = "system_live/controles/estop";
+            firebaseDatabase.ref(estopPath).on("value", snapshot => {
+                clearProcessReadError(estopPath);
+                emergencyStopActive = snapshot.val() !== null && parseActuatorState(snapshot.val());
+                renderIndustrialState();
+            }, error => recordProcessReadError(estopPath, error));
+
+            const alarmsPath = "system_live/alarmas";
+            firebaseDatabase.ref(alarmsPath).on("value", snapshot => {
+                clearProcessReadError(alarmsPath);
+                activeAlarms = [];
+                snapshot.forEach(child => {
+                    const alarm = child.val();
+                    if (alarm && typeof alarm === "object") activeAlarms.push(alarm);
+                });
+                renderIndustrialState();
+            }, error => {
+                recordProcessReadError(alarmsPath, error);
+            });
+        }
+
+        function handleSliderInput(idx) {
+            if (!currentUser || currentUser.role !== "ADMINISTRADOR" || !developerMode) return;
+            const slider = document.getElementById("slider-" + idx);
+            if (!slider || !sensorActuators[idx]) return;
+            const level = Math.max(0, Math.min(100, Number(slider.value)));
+            if (!Number.isFinite(level)) return;
+            sensorLevels[sensorActuators[idx]] = level;
+            renderTankLevel(idx);
+            writeFirebase("monitoreo/" + sensorActuators[idx], level);
         }
 
         function updateActuatorState(idx, isOn) {
             estadosActuadores[idx] = isOn;
             const button = document.getElementById("toggle-" + idx);
             const container = document.getElementById("container-" + idx);
+            if (!button || !container) return;
             button.innerText = isOn ? "ON" : "OFF";
-            button.className = "btn-toggle " + (isOn ? "active" : "inactive");
+            button.classList.toggle("active", isOn);
+            button.classList.toggle("inactive", !isOn);
             container.classList.toggle("disabled-ui", !isOn);
             updateElementColor(idx);
-        }
-
-        function updatePumpFromFirebase(value) {
-            const isOn = parseActuatorState(value);
-            updateActuatorState(0, isOn);
         }
 
         function setupFirebaseListeners() {
@@ -453,45 +948,34 @@ export async function renderScadaSvg(config = {}) {
                     const value = Number(snapshot.val());
                     if (!Number.isFinite(value)) return;
 
-                    const idx = { sensor1: 7, sensor2: 6, sensor3: 5 }[sensor];
+                    const idx = sensorActuatorIndexes[sensor];
                     const clamped = Math.max(0, Math.min(100, value));
-                    document.getElementById("slider-" + idx).value =
-                        String(Math.round((clamped / 100) * 19));
-                    updateElementColor(idx);
+                    sensorLevels[sensor] = clamped;
+                    const slider = document.getElementById("slider-" + idx);
+                    if (slider) slider.value = String(clamped);
+                    renderTankLevel(idx);
+                    renderIndustrialState();
                 }, error => console.error("Error leyendo monitoreo/" + sensor, error));
+
+                const errorPath = "monitoreo/" + sensor + "_error";
+                firebaseDatabase.ref(errorPath).on("value", snapshot => {
+                    clearProcessReadError(errorPath);
+                    sensorDisconnected[sensor] =
+                        snapshot.val() !== null && parseActuatorState(snapshot.val());
+                    renderTankLevel(sensorActuatorIndexes[sensor]);
+                    renderIndustrialState();
+                }, error => recordProcessReadError(errorPath, error));
             });
 
-            new Set(Object.values(actuatorStatePaths)).forEach(path => {
-                if (path === "monitoreo/bomba") return;
+            [5, 6, 7].forEach(idx => {
+                const path = actuatorStatePaths[idx];
                 firebaseDatabase.ref(path).on("value", snapshot => {
                     if (snapshot.val() === null) return;
-                    const isOn = parseActuatorState(snapshot.val());
-                    const affectedActuators = Object.entries(actuatorStatePaths)
-                        .filter(([, actuatorPath]) => actuatorPath === path)
-                        .map(([idx]) => Number(idx));
-                    affectedActuators.forEach(actuatorIdx => updateActuatorState(actuatorIdx, isOn));
+                    updateActuatorState(idx, parseActuatorState(snapshot.val()));
+                    renderIndustrialState();
                 }, error => console.error("Error leyendo " + path, error));
             });
 
-            firebaseDatabase.ref("monitoreo/bomba").on("value", snapshot => {
-                if (snapshot.val() !== null) updatePumpFromFirebase(snapshot.val());
-            }, error => console.error("Error leyendo monitoreo/bomba", error));
-
-            new Set(Object.values(actuatorColorPaths)).forEach(path => {
-                firebaseDatabase.ref(path).on("value", snapshot => {
-                    if (snapshot.val() === null) return;
-                    const value = Number(snapshot.val());
-                    if (!Number.isInteger(value) || value < 0 || value > 19) return;
-
-                    const affectedActuators = Object.entries(actuatorColorPaths)
-                        .filter(([, actuatorPath]) => actuatorPath === path)
-                        .map(([idx]) => Number(idx));
-                    affectedActuators.forEach(actuatorIdx => {
-                        document.getElementById("slider-" + actuatorIdx).value = String(value);
-                        updateElementColor(actuatorIdx);
-                    });
-                }, error => console.error("Error leyendo " + path, error));
-            });
         }
 
         // Limpieza explícita del cuadro rojo de fondo de la válvula
@@ -506,220 +990,394 @@ export async function renderScadaSvg(config = {}) {
         });
 
         function toggleActuador(idx) {
+            if (!currentUser || currentUser.role !== "ADMINISTRADOR" || !developerMode) return;
             const btn = document.getElementById("toggle-" + idx);
+            if (!btn || btn.disabled) return;
             const container = document.getElementById("container-" + idx);
-            estadosActuadores[idx] = !estadosActuadores[idx];
+            const currentState = idx === 0 ? pumpActive : estadosActuadores[idx];
+            estadosActuadores[idx] = !currentState;
+            if (idx === 0) setPumpState(estadosActuadores[idx]);
 
             if (estadosActuadores[idx]) {
                 btn.innerText = "ON";
-                btn.className = "btn-toggle active";
-                container.classList.remove("disabled-ui");
+                btn.classList.add("active");
+                btn.classList.remove("inactive");
+                if (container) container.classList.remove("disabled-ui");
             } else {
                 btn.innerText = "OFF";
-                btn.className = "btn-toggle inactive";
-                container.classList.add("disabled-ui");
+                btn.classList.add("inactive");
+                btn.classList.remove("active");
+                if (container) container.classList.add("disabled-ui");
             }
-            updateElementColor(idx);
-            writeFirebase(actuatorStatePaths[idx], estadosActuadores[idx]);
+            if (idx === 1) {
+                writeFirebase("system_live/controles/valvula", estadosActuadores[idx]);
+                writeFirebase("monitoreo/valvula", estadosActuadores[idx]);
+            } else {
+                writeFirebase(actuatorStatePaths[idx], estadosActuadores[idx]);
+            }
+            if (idx < 5) renderIndustrialState();
         }
 
-        function setSliderTrackStyle(id, colorHex, percentVal) {
-            const styleId = "slider-style-" + id;
-            let styleEl = document.getElementById(styleId);
-            if (!styleEl) {
-                styleEl = document.createElement("style");
-                styleEl.id = styleId;
-                document.head.appendChild(styleEl);
+        function setPumpState(isOn) {
+            if (isOn && !pumpActive) {
+                interleavedTank = interleavedTank === 2 ? 3 : 2;
             }
-            
-            const gradient = "linear-gradient(to right, " + colorHex + " 0%, " + colorHex + " " + percentVal + "%, #e2e8f0 " + percentVal + "%, #e2e8f0 100%)";
-
-            styleEl.innerHTML = 
-                "#" + id + "::-webkit-slider-runnable-track { background: " + gradient + " !important; }" +
-                "#" + id + "::-moz-range-track { background: " + gradient + " !important; }" +
-                "#" + id + "::-webkit-slider-thumb { background: " + colorHex + " !important; }" +
-                "#" + id + "::-moz-range-thumb { background: " + colorHex + " !important; }";
+            pumpActive = isOn;
+            estadosActuadores[0] = isOn;
+            const button = document.getElementById("toggle-0");
+            if (button) {
+                button.textContent = isOn ? "ON" : "OFF";
+                button.classList.toggle("active", isOn);
+                button.classList.toggle("inactive", !isOn);
+                button.setAttribute("aria-label", "Bomba " + (isOn ? "encendida" : "apagada"));
+            }
+            updateProcessInfoModal();
         }
 
         function updateElementColor(idx) {
+            if (idx >= 0 && idx < 5) {
+                renderIndustrialState();
+                return;
+            }
+            renderTankLevel(idx);
+        }
+
+        function paintProcessElement(idx, colorHex) {
             const config = actuadoresData[idx];
+            const badge = document.getElementById("statusLabel-" + idx);
+            if (!config || !badge) return;
+
+            const isBlue = colorHex === PROCESS_COLORS.blue;
+            const isRed = colorHex === PROCESS_COLORS.red;
+            const isWarning = colorHex === PROCESS_COLORS.yellow;
+            const label = isRed ? "FALLA CRÍTICA"
+                : isWarning ? "ADVERTENCIA"
+                    : isBlue ? "FLUJO ACTIVO"
+                        : "EN REPOSO";
+
+            config.ids.forEach(id => {
+                const element = document.getElementById(id);
+                if (!element) return;
+
+                if (config.tipo === "bomba") {
+                    const previousOverlay = processOverlays.get(id);
+                    if (previousOverlay) {
+                        previousOverlay.remove();
+                        processOverlays.delete(id);
+                    }
+
+                    element.classList.remove("glow-blue", "glow-red", "glow-yellow");
+                    if (!colorHex || !element.parentNode) return;
+
+                    const overlay = element.cloneNode(true);
+                    overlay.id = "process-overlay-" + id;
+                    overlay.querySelectorAll("[id]").forEach(node => node.removeAttribute("id"));
+                    overlay.style.mixBlendMode = "color";
+                    overlay.style.pointerEvents = "none";
+                    overlay.style.filter = colorHex === PROCESS_COLORS.red
+                        ? "drop-shadow(0 0 6px rgba(239, 68, 68, 0.95))"
+                        : colorHex === PROCESS_COLORS.yellow
+                            ? "drop-shadow(0 0 6px rgba(251, 191, 36, 0.95))"
+                            : "drop-shadow(0 0 5px rgba(59, 130, 246, 0.9))";
+
+                    const overlayShapes = ["path", "rect", "polygon", "circle", "ellipse"].includes(overlay.tagName.toLowerCase())
+                        ? [overlay]
+                        : overlay.querySelectorAll("path, rect, polygon, circle, ellipse");
+                    overlayShapes.forEach(shape => {
+                        shape.setAttribute("fill", colorHex);
+                        shape.style.setProperty("fill", colorHex);
+                    });
+                    element.parentNode.appendChild(overlay);
+                    processOverlays.set(id, overlay);
+                    element.classList.add(isRed ? "glow-red" : isWarning ? "glow-yellow" : "glow-blue");
+                    return;
+                }
+
+                const isPipe = config.tipo === "tuberia";
+                element.classList.remove("glow-blue", "glow-red", "glow-yellow");
+                const shapes = ["path", "rect", "polygon", "circle", "ellipse"].includes(element.tagName.toLowerCase())
+                    ? [element]
+                    : element.querySelectorAll("path, rect, polygon, circle, ellipse");
+                if (isPipe) {
+                    const glowClass = colorHex
+                        ? (isRed ? "glow-red" : isWarning ? "glow-yellow" : "glow-blue")
+                        : null;
+                    [element, ...shapes].forEach(shape => {
+                        shape.classList.remove("glow-blue", "glow-red", "glow-yellow");
+                        if (glowClass) shape.classList.add(glowClass);
+                    });
+                }
+                shapes.forEach(shape => {
+                    if (!originalProcessFills.has(shape)) {
+                        originalProcessFills.set(shape, {
+                            fillAttribute: shape.getAttribute("fill"),
+                            fillStyle: shape.style.getPropertyValue("fill"),
+                            fillPriority: shape.style.getPropertyPriority("fill")
+                        });
+                    }
+
+                    if (colorHex) {
+                        shape.setAttribute("fill", colorHex);
+                        shape.style.setProperty("fill", colorHex);
+                        return;
+                    }
+
+                    const original = originalProcessFills.get(shape);
+                    if (original.fillAttribute === null) shape.removeAttribute("fill");
+                    else shape.setAttribute("fill", original.fillAttribute);
+                    if (original.fillStyle) {
+                        shape.style.setProperty("fill", original.fillStyle, original.fillPriority);
+                    } else {
+                        shape.style.removeProperty("fill");
+                    }
+                });
+            });
+
+            badge.style.backgroundColor = colorHex || "";
+            badge.style.color = colorHex === PROCESS_COLORS.yellow ? "#1e293b" : colorHex ? "#fff" : "";
+            badge.textContent = config.nombre.toUpperCase() + ": " + label;
+        }
+
+        function paintTankAlarm(idx, color) {
+            const config = actuadoresData[idx];
+            if (!config || config.tipo !== "tanque") return;
+            const badge = document.getElementById("statusLabel-" + idx);
+            if (!badge) return;
+            paintProcessElement(idx, color);
+        }
+
+        function renderProcessIndicators() {
+            processLevelLabels.forEach(({ group, background, text }, sensor) => {
+                const config = actuadoresData.find(act => act.tipo === "tanque" && act.sensor === sensor);
+                const dimensions = config && dimensionesOriginalesTanques[config.clipId];
+                if (!config || !dimensions) return;
+
+                const level = sensorLevels[sensor];
+                const label = sensorDisconnected[sensor]
+                    ? config.tanque + ": SIN SEÑAL"
+                    : typeof level === "number"
+                        ? config.tanque + ": " + Math.round(level) + "%"
+                        : config.tanque + ": --%";
+                const fontSize = Math.max(12, Math.min(20, dimensions.width * 0.09));
+                const width = Math.min(dimensions.width * 0.94, Math.max(fontSize * 3.2, label.length * fontSize * 0.58 + 18));
+                const height = fontSize * 1.65;
+                const centerX = dimensions.x + dimensions.width / 2;
+                const centerY = dimensions.y + dimensions.height / 2;
+
+                group.setAttribute("transform", "translate(" + centerX + " " + centerY + ")");
+                background.setAttribute("x", String(-width / 2));
+                background.setAttribute("y", String(-height / 2));
+                background.setAttribute("width", String(width));
+                background.setAttribute("height", String(height));
+                background.setAttribute("rx", String(height * 0.2));
+                text.setAttribute("font-size", String(fontSize));
+                text.textContent = label;
+            });
+        }
+
+        function updateProcessInfoModal() {
+            if (!activeProcessInfo) return;
+            const title = document.getElementById("process-modal-title");
+            const details = document.getElementById("process-modal-details");
+            if (!title || !details) return;
+
+            const { type, index } = activeProcessInfo;
+            const config = actuadoresData[index];
+            if (!config) return;
+            title.textContent = config.tipo === "tanque"
+                ? (config.tanque === "T1" ? "Depósito Principal" : config.nombre.replace(/^Nivel /, ""))
+                : config.nombre;
+
+            const rows = [];
+            if (type === "tank") {
+                const sensor = config.sensor;
+                const level = sensorLevels[sensor];
+                rows.push(["Nivel actual", sensorDisconnected[sensor] || typeof level !== "number"
+                    ? "No disponible"
+                    : Math.round(level) + "%"]);
+                rows.push(["Estado del sensor", sensorDisconnected[sensor] ? "Desconectado" : "Conectado"]);
+            } else if (type === "pump") {
+                rows.push(["Estado actual", pumpActive ? "ON" : "OFF"]);
+                rows.push(["Tiempo de funcionamiento", "No disponible"]);
+            } else if (type === "valve") {
+                rows.push(["Posición actual", valveActive ? "T2" : "T3"]);
+            }
+
+            details.replaceChildren(...rows.map(([label, value]) => {
+                const row = document.createElement("div");
+                const labelElement = document.createElement("strong");
+                labelElement.textContent = label + ": ";
+                row.append(labelElement, document.createTextNode(value));
+                return row;
+            }));
+        }
+
+        function openProcessInfo(type, index) {
+            activeProcessInfo = { type, index };
+            const modal = document.getElementById("process-info-modal");
+            updateProcessInfoModal();
+            modal.hidden = false;
+            document.getElementById("process-modal-close").focus();
+        }
+
+        function closeProcessInfoModal() {
+            const modal = document.getElementById("process-info-modal");
+            if (modal) modal.hidden = true;
+            activeProcessInfo = null;
+        }
+
+        function setupProcessDiagramInteractions() {
+            const svg = document.querySelector("#contenedor-svg > svg");
+            if (!svg) return;
+
+            const svgNamespace = "http://www.w3.org/2000/svg";
+            let labelLayer = svg.querySelector("#process-level-labels");
+            if (!labelLayer) {
+                labelLayer = document.createElementNS(svgNamespace, "g");
+                labelLayer.id = "process-level-labels";
+                labelLayer.setAttribute("pointer-events", "none");
+                svg.appendChild(labelLayer);
+            }
+
+            const targetIndexes = new Map();
+            actuadoresData.forEach((config, index) => {
+                const targets = config.tipo === "tanque"
+                    ? [...config.ids, config.idFondo]
+                    : config.ids;
+                targets.filter(Boolean).forEach(id => {
+                    const target = document.getElementById(id);
+                    if (!target) return;
+                    target.style.cursor = "pointer";
+                    target.style.pointerEvents = "auto";
+                    targetIndexes.set(id, index);
+                });
+
+                if (config.tipo === "tanque") {
+                    const group = document.createElementNS(svgNamespace, "g");
+                    group.setAttribute("class", "process-level-label");
+                    group.setAttribute("pointer-events", "none");
+                    const background = document.createElementNS(svgNamespace, "rect");
+                    const text = document.createElementNS(svgNamespace, "text");
+                    group.append(background, text);
+                    labelLayer.appendChild(group);
+                    processLevelLabels.set(config.sensor, { group, background, text });
+                }
+            });
+
+            svg.addEventListener("click", event => {
+                let target = event.target;
+                while (target && target !== svg) {
+                    const index = targetIndexes.get(target.id);
+                    if (index !== undefined) {
+                        const type = actuadoresData[index].tipo === "tanque"
+                            ? "tank"
+                            : index === 0 ? "pump" : index === 1 ? "valve" : null;
+                        if (type) openProcessInfo(type, index);
+                        return;
+                    }
+                    target = target.parentNode;
+                }
+            });
+        }
+
+        function renderTankLevel(idx) {
+            const config = actuadoresData[idx];
+            if (!config || config.tipo !== "tanque") return;
+
+            const sensor = config.sensor;
             const slider = document.getElementById("slider-" + idx);
             const badge = document.getElementById("statusLabel-" + idx);
             const textPct = document.getElementById("colorTxt-" + idx);
+            const element = document.getElementById(config.ids[0]);
+            if (!slider || !badge || !textPct || !element) return;
 
-            if (!slider || !badge || !textPct) return;
+            const disconnectControl = document.getElementById("sensor-error-" + sensor);
+            if (disconnectControl) disconnectControl.checked = sensorDisconnected[sensor];
+            if (sensorDisconnected[sensor]) {
+                slider.disabled = true;
+                textPct.textContent = "--";
+                textPct.style.color = "#64748b";
+                element.setAttribute("fill", "#64748b");
+                element.style.fill = "#64748b";
+                element.style.opacity = "0.5";
 
-            const colorIdx = parseInt(slider.value);
-            const color = paleta[colorIdx];
-            const pctFill = (colorIdx / 19) * 100;
-
-            textPct.innerText = Math.round(pctFill);
-            textPct.style.color = color.c;
-
-            // =========================================================================
-            // MODO 1: TRATAMIENTO METALIZADO (BOMBA Y VÁLVULA)
-            // =========================================================================
-            if (config.tipo === "bomba") {
-                config.ids.forEach(idComponente => {
-                    const elementoSvg = document.getElementById(idComponente);
-                    if (!elementoSvg) return;
-
-                    let overlay = document.getElementById("overlay-" + idComponente);
-                    if (!overlay) {
-                        overlay = elementoSvg.cloneNode(true);
-                        overlay.id = "overlay-" + idComponente;
-                        overlay.classList.add("efecto-dinamico");
-                        overlay.style.mixBlendMode = "color";
-                        overlay.style.pointerEvents = "none";
-                        elementoSvg.parentNode.appendChild(overlay);
-                    }
-
-                    if (!estadosActuadores[idx]) {
-                        overlay.style.opacity = "0";
-                        elementoSvg.style.filter = "none";
-                        elementoSvg.style.transform = "none";
-                    } else {
-                        overlay.style.opacity = "1.0";
-                        const paths = overlay.querySelectorAll("path, rect, polygon, circle, ellipse");
-                        paths.forEach(p => p.setAttribute("fill", color.c));
-
-                        elementoSvg.style.filter = "url(#sombra-hundido)";
-                        elementoSvg.style.transform = "translateY(0.4px) translateX(0.2px)";
-                        overlay.style.transform = "translateY(0.4px) translateX(0.2px)";
-                    }
-                });
-
-                if (!estadosActuadores[idx]) {
-                    badge.style.backgroundColor = "#e2e8f0";
-                    badge.style.color = "#94a3b8";
-                    badge.innerText = "STANDBY METAL";
-                    setSliderTrackStyle(slider.id, '#94a3b8', pctFill);
-                } else {
-                    badge.style.backgroundColor = color.c;
-                    badge.style.color = color.t;
-                    badge.innerText = config.nombre.toUpperCase() + ": " + color.n;
-                    setSliderTrackStyle(slider.id, color.c, pctFill);
-                }
-                return;
-            }
-
-            // =========================================================================
-            // MODO 2: TUBERÍAS GENERALES
-            // =========================================================================
-            if (config.tipo === "tuberia") {
-                config.ids.forEach(idComponente => {
-                    const elementoSvg = document.getElementById(idComponente);
-                    if (!elementoSvg) return;
-
-                    const elementosInternos = (elementoSvg.tagName === "path" || elementoSvg.tagName === "rect" || elementoSvg.tagName === "polygon")
-                        ? [elementoSvg] 
-                        : elementoSvg.querySelectorAll(config.selector);
-
-                    if (!estadosActuadores[idx]) {
-                        elementoSvg.style.filter = "none";
-                        elementosInternos.forEach((el, elIdx) => {
-                            const key = idComponente + "-" + elIdx;
-                            if (coloresOriginalesSvg[key]) {
-                                el.setAttribute("fill", coloresOriginalesSvg[key]);
-                                el.style.fill = coloresOriginalesSvg[key];
-                            }
-                        });
-                    } else {
-                        elementoSvg.style.filter = "url(#sombra-hundido)";
-                        elementosInternos.forEach(el => {
-                            el.setAttribute("fill", color.c);
-                            el.style.fill = color.c;
-                        });
-                    }
-                });
-
-                if (!estadosActuadores[idx]) {
-                    badge.style.backgroundColor = "#e2e8f0";
-                    badge.style.color = "#94a3b8";
-                    badge.innerText = "STANDBY ORIGINAL";
-                    setSliderTrackStyle(slider.id, '#94a3b8', pctFill);
-                } else {
-                    badge.style.backgroundColor = color.c;
-                    badge.style.color = color.t;
-                    badge.innerText = config.nombre.toUpperCase() + ": " + color.n;
-                    setSliderTrackStyle(slider.id, color.c, pctFill);
-                }
-                return;
-            }
-
-            // =========================================================================
-            // MODO 3: CONTROL DE AGUA / TANQUES MEDIANTE CLIPPATH DINGÁMICO (CORREGIDO)
-            // =========================================================================
-            if (config.tipo === "tanque") {
                 const clipRect = document.getElementById(config.clipId);
-                const dimensiones = dimensionesOriginalesTanques[config.clipId];
-
-                config.ids.forEach(idComponente => {
-                    const elementoSvg = document.getElementById(idComponente);
-                    if (!elementoSvg) return;
-
-                    if (!estadosActuadores[idx]) {
-                       elementoSvg.style.opacity = "0.80";
-                       elementoSvg.setAttribute("fill", "#cbd5e1");
-                       elementoSvg.style.fill = "#cbd5e1";
-                    } else {
-                        elementoSvg.style.opacity = "0.80";
-                        // Mantenemos el color fijo o el de la paleta si deseas cambiarlo, sin romper la silueta
-                        elementoSvg.setAttribute("fill", "#3b82f6"); 
-                        elementoSvg.style.fill = "#3b82f6";
-
-                        // Modificamos el clipPath dinámico para simular el llenado de abajo hacia arriba
-                        if (clipRect && dimensiones) {
-                            const fraccionNivel = pctFill / 100;
-                            const nuevaAltura = dimensiones.height * fraccionNivel;
-                            const nuevoY = dimensiones.y + (dimensiones.height - nuevaAltura);
-
-                            clipRect.setAttribute("x", dimensiones.x);
-                            clipRect.setAttribute("y", nuevoY);
-                            clipRect.setAttribute("width", dimensiones.width);
-                            clipRect.setAttribute("height", nuevaAltura);
-                        }
-                    }
-                });
-
-                if (!estadosActuadores[idx]) {
-                    badge.style.backgroundColor = "#ef4444";
-                    badge.style.color = "#fff";
-                    badge.innerText = "TANQUE DESCONECTADO";
-                    setSliderTrackStyle(slider.id, '#ef4444', pctFill);
-                } else {
-                    badge.style.backgroundColor = "#3b82f6";
-                    badge.style.color = "#fff";
-                    badge.innerText = config.nombre.toUpperCase() + " AL " + Math.round(pctFill) + "%";
-                    setSliderTrackStyle(slider.id, '#3b82f6', pctFill);
+                const dimensions = dimensionesOriginalesTanques[config.clipId];
+                if (clipRect && dimensions) {
+                    clipRect.setAttribute("x", dimensions.x);
+                    clipRect.setAttribute("y", dimensions.y);
+                    clipRect.setAttribute("width", dimensions.width);
+                    clipRect.setAttribute("height", dimensions.height);
                 }
+
+                badge.style.backgroundColor = "#64748b";
+                badge.style.color = "#fff";
+                badge.textContent = config.nombre.toUpperCase() + ": SENSOR DESCONECTADO";
+                renderProcessIndicators();
+                updateProcessInfoModal();
                 return;
+            }
+
+            slider.disabled = false;
+            const level = Math.max(0, Math.min(100, sensorLevels[sensor] ?? Number(slider.value)));
+            if (!Number.isFinite(level)) return;
+            slider.value = String(level);
+            textPct.textContent = String(Math.round(level));
+            textPct.style.color = PROCESS_COLORS.blue;
+
+            element.setAttribute("fill", PROCESS_COLORS.blue);
+            element.style.fill = PROCESS_COLORS.blue;
+            element.style.opacity = "0.8";
+
+            const clipRect = document.getElementById(config.clipId);
+            const dimensions = dimensionesOriginalesTanques[config.clipId];
+            if (clipRect && dimensions) {
+                const height = dimensions.height * (level / 100);
+                clipRect.setAttribute("x", dimensions.x);
+                clipRect.setAttribute("y", dimensions.y + dimensions.height - height);
+                clipRect.setAttribute("width", dimensions.width);
+                clipRect.setAttribute("height", height);
+            }
+
+            badge.style.backgroundColor = "";
+            badge.style.color = "";
+            badge.textContent = config.nombre.toUpperCase() + " AL " + Math.round(level) + "%";
+            renderProcessIndicators();
+            updateProcessInfoModal();
+        }
+
+        async function setSensorDisconnected(sensor, isDisconnected) {
+            if (!currentUser || currentUser.role !== "ADMINISTRADOR" || !developerMode) return;
+            if (!Object.prototype.hasOwnProperty.call(sensorDisconnected, sensor)) return;
+            if (typeof isDisconnected !== "boolean") return;
+
+            const alarmRef = firebaseDatabase.ref("system_live/alarmas/sensor_error_" + sensor);
+            const alarm = {
+                mensaje: "Fallo de comunicación en " + sensor.toUpperCase(),
+                nivel: "warning",
+                tipo: "sensor",
+                hora: new Date().toLocaleTimeString("en-GB", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: false
+                })
+            };
+            const sensorErrorRef = firebaseDatabase.ref("monitoreo/" + sensor + "_error");
+
+            try {
+                await Promise.all([
+                    sensorErrorRef.set(isDisconnected),
+                    isDisconnected ? alarmRef.set(alarm) : alarmRef.remove()
+                ]);
+            } catch (error) {
+                console.error("No se pudo actualizar el estado de desconexión de " + sensor, error);
+                alert("No se pudo actualizar el estado del sensor en Firebase. Revisa la conexión y los permisos.");
             }
         }
 
         document.addEventListener("DOMContentLoaded", () => {
-            // Mapeo inicial de los colores originales de tuberías
             actuadoresData.forEach((act) => {
-                if (act.ids) {
-                    act.ids.forEach(idComponente => {
-                        const elementoSvg = document.getElementById(idComponente);
-                        if (elementoSvg) {
-                            elementoSvg.classList.add("effecto-dinamico");
-                            if (act.selector) {
-                                const elementosInternos = (elementoSvg.tagName === "path" || elementoSvg.tagName === "rect" || elementoSvg.tagName === "polygon")
-                                    ? [elementoSvg]
-                                    : elementoSvg.querySelectorAll(act.selector);
-                                    
-                                elementosInternos.forEach((el, elIdx) => {
-                                    const fillOriginal = el.getAttribute("fill") || window.getComputedStyle(el).fill;
-                                    coloresOriginalesSvg[idComponente + "-" + elIdx] = fillOriginal;
-                                });
-                            }
-                        }
-                    });
-                }
-
-                // Obtener las dimensiones exactas del rectángulo azul original del tanque usando BoundingBox
                 if (act.tipo === "tanque") {
                     const elAgua = document.getElementById(act.ids[0]);
                     if (elAgua) {
@@ -737,9 +1395,18 @@ export async function renderScadaSvg(config = {}) {
                 }
             });
 
-            // Inicialización limpia
-            actuadoresData.forEach((act, idx) => updateElementColor(idx));
+            setupProcessDiagramInteractions();
+            actuadoresData.forEach((act, idx) => {
+                if (act.tipo === "tanque") renderTankLevel(idx);
+            });
+            applyProcessRole();
+            renderFillingPriority(null);
+            renderIndustrialState();
             setupFirebaseListeners();
+            setupProcessFirebaseListeners();
+            document.addEventListener("keydown", event => {
+                if (event.key === "Escape") closeProcessInfoModal();
+            });
         });
     </script>
       `;

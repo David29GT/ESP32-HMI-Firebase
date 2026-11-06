@@ -135,8 +135,8 @@ export default {
         return new Response(JSON.stringify(results), { headers: CORS_HEADERS });
       }
 
-      // --- RUTA: DASHBOARD ---
-      if (url.pathname === "/dashboard" || url.pathname === "/telemetria") {
+      // --- RUTA: TELEMETRÍA ---
+      if (url.pathname === "/telemetria") {
         return new Response(renderDashboard({ FIREBASE_URL: env.FIREBASE_URL }), { 
           headers: { "Content-Type": "text/html" } 
         });
@@ -156,8 +156,9 @@ export default {
         });
       }
 
-      // --- RUTA: SCADA ---
-      if (url.pathname === "/" || url.pathname === "/scada" || url.pathname === "/tarjetas") {
+      // --- RUTA: DASHBOARD SCADA ---
+      if (url.pathname === "/" || url.pathname === "/scada" ||
+          url.pathname === "/dashboard" || url.pathname === "/tarjetas") {
         return await handleScadaRequest({ FIREBASE_URL: env.FIREBASE_URL });
       }
 

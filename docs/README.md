@@ -25,6 +25,10 @@ Las cuatro vistas se conectan directamente a Firebase Realtime Database mediante
 
 Los cambios en sliders y controles ON/OFF, modos de operación (**MANUAL**, **AUTO** y **MANT**), setpoints y E-STOP se escriben en Firebase y se propagan a los dispositivos o vistas que escuchan esos nodos. La vista de telemetría también permite introducir valores manuales en Firebase; su simulación automática local afecta la gráfica del navegador y no reemplaza los datos reales.
 
+### Simulador local del ESP32
+
+Para probar la interfaz sin hardware, instala las dependencias Python (`python -m pip install -r backend\requirements.txt`) y ejecuta `python simulador_esp32.py` desde la raíz del proyecto. El script usa `backend/serviceAccountKey.json` (ignorado por Git), abre una ventana con un slider de 0 a 100 para ajustar el depósito `sensor1` y simula la transferencia por bomba (5 puntos porcentuales por segundo) y el consumo automático de T2/T3 (0.5 puntos por segundo). El botón **Consumo** activa o pausa la reducción automática del depósito; con el consumo pausado, el slider permite ajustar el nivel libremente. El depósito no alimenta los tanques superiores por gravedad; al llenarse registra una alarma que se borra cuando el nivel baja. La bomba se apaga y se registra una alarma crítica si el depósito baja de 10%; esta alarma se borra al superar 15%. Si Firebase usa otra URL, configúrala en la variable de entorno `FIREBASE_DATABASE_URL`.
+
 ## Seguridad y roles (RBAC)
 
 ### Autenticación de páginas
@@ -44,6 +48,7 @@ La selección de rol y sus restricciones son lógica de presentación ejecutada 
 ## Alarmas, auditoría e históricos
 
 - **Simulador de alarmas:** el Dashboard/Tarjetas incluye un botón de simulación visible para Administrador. Inyecta en `system_live/alarmas` una alarma de prueba crítica o de advertencia; los listeners actualizan las vistas de alarmas.
+- **Vista Proceso:** el Administrador puede activar el Modo Desarrollador para simular la desconexión de los sensores T1, T2 y T3. El estado se sincroniza en `monitoreo/sensorX_error`, muestra el tanque en gris sin indicar nivel e inyecta una alarma de comunicación en `system_live/alarmas`.
 - **Audit Log:** los cambios relevantes de la interfaz se registran en `system_live/logs` en Firebase. La tarjeta del Dashboard muestra las entradas más recientes.
 - **Telemetría e históricos:** Chart.js representa los sensores en tiempo real desde Firebase. La vista permite seleccionar rangos y consulta las mediciones históricas almacenadas en D1 mediante `/api/data?start=...&end=...`. El repositorio también incluye `backend/datos_grafica.json` como exportación JSON para gráficas; la consulta histórica interactiva de la interfaz se realiza desde D1.
 - **Alarmas del Worker:** el endpoint de ingesta de datos puede registrar en la tabla `alertas` de D1 condiciones como valores fuera de rango y caídas bruscas.
